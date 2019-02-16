@@ -1,4 +1,4 @@
-const implem = require('../../../lib/implements');
+const implem = require('implemented');
 
 const dynamodb = require('./dynamodb');
 const testdb = require('./testdb');

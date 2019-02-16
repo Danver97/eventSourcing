@@ -1,6 +1,6 @@
 const sqs = require('./sqs');
 const testbroker = require('./testbroker');
-const implem = require('../../implements');
+const implem = require('implemented');
 
 const Property = implem.Property;
 

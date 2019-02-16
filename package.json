@@ -13,6 +13,7 @@
   "license": "ISC",
   "dependencies": {
     "aws-sdk": "^2.404.0",
+    "implemented": "^1.0.0",
     "promisify-cb": "^1.0.0"
   }
 }
