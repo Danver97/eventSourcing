@@ -1,0 +1,14 @@
+{
+  "name": "eventsourcing",
+  "version": "1.0.0",
+  "description": "A javascript module developed to easily manage event sourcing.",
+  "main": "event.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Christian Paesante",
+  "license": "ISC"
+}
