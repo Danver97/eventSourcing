@@ -1,7 +1,7 @@
 const EventEmitter = require('events');
 const uuidv1 = require('uuid/v1');
 const Event = require('../event');
-const Promisify = require('../../../lib/Promisify');
+const Promisify = require('promisify-cb');
 
 let eventStore = {};
 let snapshots = {};

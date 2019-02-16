@@ -1,5 +1,5 @@
 const BrokerEvent = require('./brokerEvent');
-const Promisify = require('../../../lib/Promisify');
+const Promisify = require('promisify-cb');
 
 let queue = [];
 const visibilityTimeout = 15000;

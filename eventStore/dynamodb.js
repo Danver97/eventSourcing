@@ -4,7 +4,7 @@ const DynamoDataTypes = require('dynamodb-data-types');
 const ddbConfig = require('../../../lib/AWS')().ddb;
 const Event = require('../event');
 
-const Promisify = require('../../../lib/Promisify');
+const Promisify = require('promisify-cb');
 
 const dynamoAttr = DynamoDataTypes.AttributeValue;
 
