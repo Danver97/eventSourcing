@@ -1,6 +1,6 @@
 {
   "name": "@danver97/event-sourcing",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A javascript module developed to easily manage event sourcing.",
   "main": "event.js",
   "directories": {
