@@ -16,7 +16,7 @@
   "author": "Christian Paesante",
   "license": "ISC",
   "dependencies": {
-    "@danver97/aws-config": "^1.0.0",
+    "@danver97/aws-config": "^1.0.1",
     "implemented": "^1.0.0",
     "promisify-cb": "^1.0.0"
   }
