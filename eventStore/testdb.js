@@ -15,7 +15,7 @@ function save(streamId, eventId, message, payload, cb) {
         if (!eventStore[streamId])
             eventStore[streamId] = { streamId, revision: 0, events: [] };
         const revision = eventStore[streamId].revision;
-        
+
         const event = new Event(streamId, eventId || eventStore[streamId].events.length, message, Object.assign({}, payload));
         if (revision === eventStore[streamId].revision) {
             eventStore[streamId].events.push(event);
@@ -105,6 +105,7 @@ class TestDbESHandler extends EventStoreHandler {
 }
 
 module.exports = {
+    TestDbESHandler,
     save,
     getStream,
     reset,
