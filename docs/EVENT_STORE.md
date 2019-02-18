@@ -65,12 +65,34 @@ It's called at the end of `getStream()`. Uses the following signature `cb(err, s
 | `err` | object | Provide error information in case of a failed `getStream()`. If everything is ok is `null` |
 | `stream` | array[object] | The stream of events; an array of Events |
 
-### getSnapshot(streamId, cb)
-Get the snapshot with the given `streamId`. (Not available yet)
+### saveSnapshot(aggregateId, revisionId, payload, cb)
+Get the snapshot with the given `aggregateId`. (Available from 1.1)
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `streamId` | string | The snapshot's aggregateId |
+| `aggregateId` | string | The snapshot's aggregateId |
+| `revisionId` | function | The id of the last event taken into account while building the snapshot |
+| `payload` | function | The actual snapshot |
+| `cb` | function | Callback function |
+
+#### Return
+If no callback is provided, returns a `Promise`.
+Otherwise returns `null`.
+
+#### Callback
+It's called at the end of `saveSnapshot()`. Uses the following signature `cb(err, snapshot)`.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `err` | object | Provide error information in case of a failed `saveSnapshot()`. If everything is ok is `null` |
+| `snapshot` | object | The snapshot |
+
+### getSnapshot(aggregateId, cb)
+Get the snapshot with the given `aggregateId`. (Available from 1.1)
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `aggregateId` | string | The snapshot's aggregateId |
 | `cb` | function | Callback function |
 
 #### Return
