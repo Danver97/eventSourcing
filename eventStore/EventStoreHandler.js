@@ -1,22 +1,24 @@
+const EventStoreError = require('./errors/event_store_error');
+
 class EventStoreHandler {
     constructor(eventStoreName) {
         this.eventStoreName = eventStoreName;
     }
 
     save(streamId, eventId, message, payload, cb) {
-        throw new Error('EventStoreHandler: save() not implemented');
+        throw new EventStoreError('save() not implemented');
     }
 
     saveSnapshot(aggregateId, revisionId, payload, cb) {
-        throw new Error('EventStoreHandler: saveSnapshot() not implemented');
+        throw new EventStoreError('saveSnapshot() not implemented');
     }
 
     getStream(streamId, cb) {
-        throw new Error('EventStoreHandler: getStream() not implemented');
+        throw new EventStoreError('getStream() not implemented');
     }
 
     getSnapshot(aggregateId, cb) {
-        throw new Error('EventStoreHandler: getSnapshot() not implemented');
+        throw new EventStoreError('getSnapshot() not implemented');
     }
 }
 

@@ -10,28 +10,12 @@ const defaultEventStore = {
 };
 const emitter = new EventEmitter();
 
-function save(streamId, eventId, message, payload, cb) {
-    return saveUtility(defaultEventStore, streamId, eventId, message, payload, cb)
+function emit(message, payload) {
+    emitter.emit(message, payload);
 }
 
-function getStream(streamId, cb) {
-    return getStreamUtility(defaultEventStore, streamId, cb);
-}
-
-function saveSnapshot(aggregateId, revisionId, payload, cb) {
-    return saveSnapshotUtility(defaultEventStore, aggregateId, revisionId, payload, cb);
-}
-
-function getSnapshot(aggregateId, cb) {
-    return getSnapshotUtility(defaultEventStore, aggregateId, cb);
-}
-
-function reset() {
-    resetUtility(defaultEventStore);
-}
-
-function resetEmitter() {
-    resetEmitterUtility();
+function on(message, cb) {
+    emitter.on(message, cb);
 }
 
 class TestDbESHandler extends EventStoreHandler {
@@ -42,32 +26,51 @@ class TestDbESHandler extends EventStoreHandler {
     }
 
     save(streamId, eventId, message, payload, cb) {
-        return saveUtility(this, streamId, eventId, message, payload, cb);
+        return Promisify(() => {
+            delete payload._revisionId;
+            if (!streamId)
+                streamId = uuidv1();
+            if (!this.eventStore[streamId])
+                this.eventStore[streamId] = { streamId, revision: 0, events: [] };
+            const revision = this.eventStore[streamId].revision;
+
+            const event = new Event(streamId, eventId || this.eventStore[streamId].events.length, message, Object.assign({}, payload));
+            if (revision === this.eventStore[streamId].revision) {
+                this.eventStore[streamId].events.push(event);
+                this.eventStore[streamId].revision++;
+            } else
+                throw new Error('Stream revision not syncronized.');
+            emit(`${event.message}`, payload);
+            return event;
+        }, cb);
     }
 
     getStream(streamId, cb) {
-        return getStreamUtility(this, streamId, cb);
+        return Promisify(() => this.eventStore[streamId].events.map(e => Event.fromObject(e)));
     }
 
     saveSnapshot(aggregateId, revisionId, payload, cb) {
-        return saveSnapshotUtility(this, aggregateId, revisionId, payload, cb);
+        return Promisify(() => {
+            this.snapshots[aggregateId] = { revision: revisionId, payload };
+        });
     }
 
     getSnapshot(aggregateId, cb) {
-        return getSnapshotUtility(this, aggregateId, cb);
+        return Promisify(() => this.snapshots[aggregateId]);
     }
 
     reset() {
-        resetUtility(this);
+        this.eventStore = {};
+        this.snapshots = {};
     }
 
     resetEmitter() {
-        resetEmitterUtility();
+        emitter.eventNames().forEach(e => emitter.removeAllListeners(e));
     }
 }
 
 /* Utility functions */
-
+/*
 function saveUtility(es, streamId, eventId, message, payload, cb) {
     return Promisify(() => {
         delete payload._revisionId;
@@ -110,20 +113,9 @@ function resetUtility(es) {
 function resetEmitterUtility() {
     emitter.eventNames().forEach(e => emitter.removeAllListeners(e));
 }
+*/
 
-function emit(message, payload) {
-    emitter.emit(message, payload);
-}
+const defaultHandler = new TestDbESHandler(microserviceName);
+defaultHandler.EsHandler = TestDbESHandler;
 
-function on(message, cb) {
-    emitter.on(message, cb);
-}
-
-module.exports = {
-    TestDbESHandler,
-    save,
-    getStream,
-    saveSnapshot,
-    getSnapshot,
-    reset,
-};
+module.exports = defaultHandler;

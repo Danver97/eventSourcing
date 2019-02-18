@@ -10,7 +10,17 @@ const eventStore = require('eventSourcing/eventStore');
 `eventStore` is an object with three functions:
 - `save(streamId, eventId, message, payload, cb)`
 - `getStream(streamId, cb)`
-- `getSnapshot(streamId, cb)` (Not available yet)
+- `saveSnapshot(aggregateId, revisionId, payload, cb)` (Available from 1.1)
+- `getSnapshot(aggregateId, cb)` (Available from 1.1)
+- `EsHandler` (Available from 1.1)
+
+## EsHandler
+`EsHandler` is a class and `eventStore` is an instance of that class. Using different instances of that class is possible to manage different event stores everyone for a single entity type. For example with dynamodb you can use different tables of different entities' event store. Otherwise you can choose to use the already defined `eventStore` to write to a default event store for the microservice.
+
+### constructor(eventStoreName)
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `eventStoreName` | string | This will be used to target a different event store from another |
 
 ### save(streamId, eventId, message, payload, cb)
 Save the event with `eventId` to the event store under the stream with the provided `streamId`. If an event with same `eventId` under the same stream is already present throws an error. If the `eventId` is bigger that the last saved event's `eventId` + 1 throws an error.
