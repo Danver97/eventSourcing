@@ -7,7 +7,7 @@ class EventStoreHandler {
         throw new Error('EventStoreHandler: save() not implemented');
     }
 
-    saveSnapshot(aggregateId, payload, cb) {
+    saveSnapshot(aggregateId, revisionId, payload, cb) {
         throw new Error('EventStoreHandler: saveSnapshot() not implemented');
     }
 

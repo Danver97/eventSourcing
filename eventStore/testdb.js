@@ -81,8 +81,11 @@ class TestDbESHandler extends EventStoreHandler {
         }, cb);
     }
 
-    saveSnapshot(aggregateId, payload, cb) {
-        throw new Error('EventStoreHandler: saveSnapshot() not implemented');
+    saveSnapshot(aggregateId, revisionId, payload, cb) {
+        const self = this;
+        return Promisify(() => {
+            self.snapshots[aggregateId] = { revision: revisionId, payload };
+        });
     }
 
     getStream(streamId, cb) {
