@@ -2,6 +2,7 @@ const ddbConfig = require('@danver97/aws-config')().ddb;
 const DynamoDataTypes = require('dynamodb-data-types');
 const Promisify = require('promisify-cb');
 const Event = require('../event');
+const EventStoreHandler = require('./EventStoreHandler');
 
 const dynamoAttr = DynamoDataTypes.AttributeValue;
 
@@ -130,7 +131,110 @@ function getStream(streamId, cb) {
     }, cb);
 }
 
+class DynamoDBESHandler extends EventStoreHandler {
+    constructor(eventStoreName) {
+        super(eventStoreName);
+        this.tableName = getTableName(this.eventStoreName);
+        this.snapshotsTableName = getSnapshotTableName(this.eventStoreName);
+        this.snapshotTag = 'Snapshot';
+    }
+
+    save(streamId, eventId, message, payload, cb) {
+        const tableName = this.tableName;
+        return Promisify(async () => {
+            let eId = eventId || payload._revisionId || 0;
+            eId++;
+            delete payload._revisionId;
+            const event = new Event(streamId, eId, message, Object.assign({}, payload));
+            const attrValues = dynamoAttr.wrap({
+                ':sid': streamId,
+                ':eid': eId, /* 1 */ // OCCHIO QUIIIII!
+                ':message': message,
+                ':payload': payload,
+            });
+            removeEmptySetsOrStrings(attrValues);
+            const params = {
+                TableName: tableName,
+                Key: dynamoAttr.wrap({ StreamId: streamId, EventId: eId /* 1 */ }), // OCCHIO QUIIIII!
+                ExpressionAttributeNames: {
+                    '#SID': 'StreamId',
+                    '#EID': 'EventId',
+                    '#MSG': 'Message',
+                    '#PL': 'Payload',
+                },
+                ExpressionAttributeValues: attrValues,
+                UpdateExpression: 'SET #MSG = :message, #PL = :payload',
+                ConditionExpression: '#SID <> :sid AND #EID <> :eid', // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
+                ReturnValues: 'ALL_NEW',
+                ReturnItemCollectionMetrics: 'SIZE',
+                ReturnConsumedCapacity: 'INDEXES',
+            };
+            // console.log(JSON.stringify(params.ExpressionAttributeValues));
+            await dynamoDb.updateItem(params).promise();
+            return event;
+        }, cb);
+    }
+
+    saveSnapshot(aggregateId, revisionId, payload, cb) {
+        const snapshotsTableName = this.snapshotsTableName;
+        const snapshotTag = this.snapshotTag;
+        return Promisify(async () => {
+            const attrValues = dynamoAttr.wrap({
+                ':revisionId': revisionId,
+                ':payload': payload,
+            });
+            removeEmptySetsOrStrings(attrValues);
+            const params = {
+                TableName: tableName,
+                Key: dynamoAttr.wrap({ StreamId: streamId, EventId: snapshotTag /* 1 */ }), // OCCHIO QUIIIII!
+                ExpressionAttributeNames: {
+                    '#REV': 'RevisionId',
+                    '#PL': 'Payload',
+                },
+                ExpressionAttributeValues: attrValues,
+                UpdateExpression: 'SET #REV = :revisionId, #PL = :payload',
+                ReturnValues: 'ALL_NEW',
+                ReturnItemCollectionMetrics: 'SIZE',
+                ReturnConsumedCapacity: 'INDEXES',
+            };
+            await dynamoDb.updateItem(params).promise();
+        }, cb);
+    }
+
+    getStream(streamId, cb) {
+        const tableName = this.tableName;
+        return Promisify(async () => {
+            const params = {
+                ConsistentRead: true,
+                ExpressionAttributeValues: dynamoAttr.wrap({ ':streamId': streamId, ':start': 0, ':now': Number.MAX_SAFE_INTEGER }),
+                KeyConditionExpression: 'StreamId = :streamId AND EventId BETWEEN :start AND :now',
+                TableName: tableName,
+            };
+            const reply = await dynamoDb.query(params).promise();
+            const results = reply.Items.map(i => dynamoAttr.unwrap(i)).map(e => Event.fromObject(e));
+            return results;
+        }, cb);
+    }
+
+    getSnapshot(aggregateId, cb) {
+        const snapshotsTableName = this.snapshotsTableName;
+        const snapshotTag = this.snapshotTag;
+        return Promisify(async () => {
+            const params = {
+                ConsistentRead: true,
+                ExpressionAttributeValues: dynamoAttr.wrap({ ':streamId': streamId, ':snapshot': snapshotTag }),
+                KeyConditionExpression: 'StreamId = :streamId AND EventId = :snapshot',
+                TableName: snapshotsTableName,
+            };
+            const reply = await dynamoDb.query(params).promise();
+            const results = reply.Items.map(i => dynamoAttr.unwrap(i)).map(e => Event.fromObject(e));
+            return results;
+        }, cb);
+    }
+}
+
 module.exports = {
+    DynamoDBESHandler,
     dynamoDb,
     save,
     getStream,

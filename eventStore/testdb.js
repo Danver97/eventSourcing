@@ -15,13 +15,7 @@ function save(streamId, eventId, message, payload, cb) {
         if (!eventStore[streamId])
             eventStore[streamId] = { streamId, revision: 0, events: [] };
         const revision = eventStore[streamId].revision;
-        /* const event = {
-            streamId,
-            eventId: eventId || eventStore[streamId].events.length,
-            // created: new Date(),
-            message,
-            payload,
-        }; */
+        
         const event = new Event(streamId, eventId || eventStore[streamId].events.length, message, Object.assign({}, payload));
         if (revision === eventStore[streamId].revision) {
             eventStore[streamId].events.push(event);
@@ -42,25 +36,11 @@ function on(message, cb) {
 }
 
 function getStream(streamId, cb) {
-    const result = new Promise(resolve => {
-        if (cb)
-            cb(eventStore[streamId].events.map(e => Event.fromObject(e)));
-        resolve(eventStore[streamId].events.map(e => Event.fromObject(e)));
-    });
-    if (cb)
-        return null;
-    return result;
+    return Promisify(() => eventStore[streamId].events.map(e => Event.fromObject(e)));
 }
 
 function getSnapshot(aggregateId, cb) {
-    const result = new Promise(resolve => {
-        if (cb)
-            cb(snapshots[aggregateId]);
-        resolve(snapshots[aggregateId]);
-    });
-    if (cb)
-        return null;
-    return result;
+    return Promisify(() => snapshots[aggregateId]);
 }
 
 function reset() {
@@ -70,6 +50,58 @@ function reset() {
 
 function resetEmitter() {
     emitter.eventNames().forEach(e => emitter.removeAllListeners(e));
+}
+
+class TestDbESHandler extends EventStoreHandler {
+    constructor(eventStoreName) {
+        super(eventStoreName);
+        this.eventStore = {};
+        this.snapshots = {};
+    }
+
+    save(streamId, eventId, message, payload, cb) {
+        const self = this;
+        return Promisify(() => {
+            delete payload._revisionId;
+            if (!streamId)
+                streamId = uuidv1();
+            if (!self.eventStore[streamId])
+                self.eventStore[streamId] = { streamId, revision: 0, events: [] };
+            const revision = self.eventStore[streamId].revision;
+
+            const event = new Event(streamId, eventId || self.eventStore[streamId].events.length, message, Object.assign({}, payload));
+            if (revision === self.eventStore[streamId].revision) {
+                self.eventStore[streamId].events.push(event);
+                self.eventStore[streamId].revision++;
+            } else
+                throw new Error('Stream revision not syncronized.');
+            emit(`${event.message}`, payload);
+            return event;
+        }, cb);
+    }
+
+    saveSnapshot(aggregateId, payload, cb) {
+        throw new Error('EventStoreHandler: saveSnapshot() not implemented');
+    }
+
+    getStream(streamId, cb) {
+        const self = this;
+        return Promisify(() => self.eventStore[streamId].events.map(e => Event.fromObject(e)));
+    }
+
+    getSnapshot(aggregateId, cb) {
+        const self = this;
+        return Promisify(() => self.snapshots[aggregateId]);
+    }
+
+    reset() {
+        this.eventStore = {};
+        this.snapshots = {};
+    }
+
+    resetEmitter() {
+        emitter.eventNames().forEach(e => emitter.removeAllListeners(e));
+    }
 }
 
 module.exports = {
