@@ -1,6 +1,6 @@
 {
   "name": "@danver97/event-sourcing",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A javascript module developed to easily manage event sourcing.",
   "main": "event.js",
   "directories": {
@@ -10,8 +10,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/Danver97/eventSourcing.git"
+    "type": "git",
+    "url": "https://github.com/Danver97/eventSourcing.git"
   },
   "author": "Christian Paesante",
   "license": "ISC",
