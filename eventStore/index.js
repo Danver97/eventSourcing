@@ -9,6 +9,8 @@ function checkImplementation(db) {
     const interf = {
         save: new Property('function', 5),
         getStream: new Property('function', 2),
+        saveSnapshot: new Property('function', 4),
+        getSnapshot: new Property('function', 2),
     };
     implem.checkImplementation(interf, db);
     return db;
