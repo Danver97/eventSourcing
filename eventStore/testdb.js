@@ -3,7 +3,9 @@ const uuidv1 = require('uuid/v1');
 const Promisify = require('promisify-cb');
 const EventStoreHandler = require('./EventStoreHandler');
 const Event = require('../event');
+const Snapshot = require('./Snapshot');
 
+let microserviceName = process.env.MICROSERVICE_NAME;
 const defaultEventStore = {
     eventStore: {},
     snapshots: {},
@@ -51,12 +53,13 @@ class TestDbESHandler extends EventStoreHandler {
 
     saveSnapshot(aggregateId, revisionId, payload, cb) {
         return Promisify(() => {
-            this.snapshots[aggregateId] = { revision: revisionId, payload };
+            const snapshot = new Snapshot(aggregateId, revisionId, payload);
+            this.snapshots[aggregateId] = snapshot;
         });
     }
 
     getSnapshot(aggregateId, cb) {
-        return Promisify(() => this.snapshots[aggregateId]);
+        return Promisify(() => Snapshot.fromObject(this.snapshots[aggregateId]));
     }
 
     reset() {

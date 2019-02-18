@@ -3,6 +3,7 @@ const DynamoDataTypes = require('dynamodb-data-types');
 const Promisify = require('promisify-cb');
 const Event = require('../event');
 const EventStoreHandler = require('./EventStoreHandler');
+const Snapshot = require('./Snapshot');
 
 const dynamoAttr = DynamoDataTypes.AttributeValue;
 
@@ -120,8 +121,8 @@ class DynamoDBESHandler extends EventStoreHandler {
                 KeyConditionExpression: 'StreamId = :streamId AND EventId = :snapshot',
             };
             const reply = await dynamoDb.query(params).promise();
-            const results = reply.Items.map(i => dynamoAttr.unwrap(i)).map(e => Event.fromObject(e));
-            return results;
+            const result = reply.Items.map(i => dynamoAttr.unwrap(i)).map(e => Snapshot.fromObject(e))[0];
+            return result;
         }, cb);
     }
 }
