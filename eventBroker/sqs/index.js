@@ -1,5 +1,4 @@
-// const ENV = require('../../../../src/env');
-const AWSinit = require('../../../../lib/AWS')();
+const AWSinit = require('@danver97/aws-config')();
 const Promisify = require('promisify-cb');
 const Event = require('../../event');
 const SqsEvent = require('./sqsEvent');

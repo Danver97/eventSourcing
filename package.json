@@ -1,5 +1,5 @@
 {
-  "name": "eventsourcing",
+  "name": "@danver97/event-sourcing",
   "version": "1.0.0",
   "description": "A javascript module developed to easily manage event sourcing.",
   "main": "event.js",
@@ -12,7 +12,7 @@
   "author": "Christian Paesante",
   "license": "ISC",
   "dependencies": {
-    "aws-sdk": "^2.404.0",
+    "@danver97/aws-config": "^1.0.0",
     "implemented": "^1.0.0",
     "promisify-cb": "^1.0.0"
   }

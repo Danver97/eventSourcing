@@ -1,25 +1,12 @@
-const AWS = require('aws-sdk/global');
-const DynamoDb = require('aws-sdk/clients/dynamodb');
+const ddbConfig = require('@danver97/aws-config')().ddb;
 const DynamoDataTypes = require('dynamodb-data-types');
-const ddbConfig = require('../../../lib/AWS')().ddb;
-const Event = require('../event');
-
 const Promisify = require('promisify-cb');
+const Event = require('../event');
 
 const dynamoAttr = DynamoDataTypes.AttributeValue;
 
-/* const dbparams = { apiVersion: '2012-08-10' };
-if (ENV.event_store === 'dynamodb' && ENV.dburl)
-    dbparams.endpoint = new AWS.Endpoint(ENV.dburl);
-const dynamoDb = new DynamoDb(dbparams); */
-
 let dynamoDb = ddbConfig.ddb;
 let microserviceName = process.env.MICROSERVICE_NAME;
-
-/* if (process.env.NODE_ENV === 'test_event_sourcing') {
-    console.log('DynamoDb: test_event_sourcing');
-    init(microserviceName);
-} */
 
 function getTableName(microserviceName) {
     return `${microserviceName}EventStreamTable`;
