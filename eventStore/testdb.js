@@ -4,53 +4,34 @@ const Promisify = require('promisify-cb');
 const EventStoreHandler = require('./EventStoreHandler');
 const Event = require('../event');
 
-let eventStore = {};
-let snapshots = {};
+const defaultEventStore = {
+    eventStore: {},
+    snapshots: {},
+};
 const emitter = new EventEmitter();
 
 function save(streamId, eventId, message, payload, cb) {
-    return Promisify(() => {
-        delete payload._revisionId;
-        if (!streamId)
-            streamId = uuidv1();
-        if (!eventStore[streamId])
-            eventStore[streamId] = { streamId, revision: 0, events: [] };
-        const revision = eventStore[streamId].revision;
-
-        const event = new Event(streamId, eventId || eventStore[streamId].events.length, message, Object.assign({}, payload));
-        if (revision === eventStore[streamId].revision) {
-            eventStore[streamId].events.push(event);
-            eventStore[streamId].revision++;
-        } else
-            throw new Error('Stream revision not syncronized.');
-        emit(`${event.message}`, payload);
-        return event;
-    }, cb);
-}
-
-function emit(message, payload) {
-    emitter.emit(message, payload);
-}
-
-function on(message, cb) {
-    emitter.on(message, cb);
+    return saveUtility(defaultEventStore, streamId, eventId, message, payload, cb)
 }
 
 function getStream(streamId, cb) {
-    return Promisify(() => eventStore[streamId].events.map(e => Event.fromObject(e)));
+    return getStreamUtility(defaultEventStore, streamId, cb);
+}
+
+function saveSnapshot(aggregateId, revisionId, payload, cb) {
+    return saveSnapshotUtility(defaultEventStore, aggregateId, revisionId, payload, cb);
 }
 
 function getSnapshot(aggregateId, cb) {
-    return Promisify(() => snapshots[aggregateId]);
+    return getSnapshotUtility(defaultEventStore, aggregateId, cb);
 }
 
 function reset() {
-    eventStore = {};
-    snapshots = {};
+    resetUtility(defaultEventStore);
 }
 
 function resetEmitter() {
-    emitter.eventNames().forEach(e => emitter.removeAllListeners(e));
+    resetEmitterUtility();
 }
 
 class TestDbESHandler extends EventStoreHandler {
@@ -61,60 +42,88 @@ class TestDbESHandler extends EventStoreHandler {
     }
 
     save(streamId, eventId, message, payload, cb) {
-        const self = this;
-        return Promisify(() => {
-            delete payload._revisionId;
-            if (!streamId)
-                streamId = uuidv1();
-            if (!self.eventStore[streamId])
-                self.eventStore[streamId] = { streamId, revision: 0, events: [] };
-            const revision = self.eventStore[streamId].revision;
-
-            const event = new Event(streamId, eventId || self.eventStore[streamId].events.length, message, Object.assign({}, payload));
-            if (revision === self.eventStore[streamId].revision) {
-                self.eventStore[streamId].events.push(event);
-                self.eventStore[streamId].revision++;
-            } else
-                throw new Error('Stream revision not syncronized.');
-            emit(`${event.message}`, payload);
-            return event;
-        }, cb);
-    }
-
-    saveSnapshot(aggregateId, revisionId, payload, cb) {
-        const self = this;
-        return Promisify(() => {
-            self.snapshots[aggregateId] = { revision: revisionId, payload };
-        });
+        return saveUtility(this, streamId, eventId, message, payload, cb);
     }
 
     getStream(streamId, cb) {
-        const self = this;
-        return Promisify(() => self.eventStore[streamId].events.map(e => Event.fromObject(e)));
+        return getStreamUtility(this, streamId, cb);
+    }
+
+    saveSnapshot(aggregateId, revisionId, payload, cb) {
+        return saveSnapshotUtility(this, aggregateId, revisionId, payload, cb);
     }
 
     getSnapshot(aggregateId, cb) {
-        const self = this;
-        return Promisify(() => self.snapshots[aggregateId]);
+        return getSnapshotUtility(this, aggregateId, cb);
     }
 
     reset() {
-        this.eventStore = {};
-        this.snapshots = {};
+        resetUtility(this);
     }
 
     resetEmitter() {
-        emitter.eventNames().forEach(e => emitter.removeAllListeners(e));
+        resetEmitterUtility();
     }
+}
+
+/* Utility functions */
+
+function saveUtility(es, streamId, eventId, message, payload, cb) {
+    return Promisify(() => {
+        delete payload._revisionId;
+        if (!streamId)
+            streamId = uuidv1();
+        if (!es.eventStore[streamId])
+            es.eventStore[streamId] = { streamId, revision: 0, events: [] };
+        const revision = es.eventStore[streamId].revision;
+
+        const event = new Event(streamId, eventId || es.eventStore[streamId].events.length, message, Object.assign({}, payload));
+        if (revision === es.eventStore[streamId].revision) {
+            es.eventStore[streamId].events.push(event);
+            es.eventStore[streamId].revision++;
+        } else
+            throw new Error('Stream revision not syncronized.');
+        emit(`${event.message}`, payload);
+        return event;
+    }, cb);
+}
+
+function getStreamUtility(es, streamId, cb) {
+    return Promisify(() => es.eventStore[streamId].events.map(e => Event.fromObject(e)));
+}
+
+function saveSnapshotUtility(es, aggregateId, revisionId, payload, cb) {
+    return Promisify(() => {
+        es.snapshots[aggregateId] = { revision: revisionId, payload };
+    });
+}
+
+function getSnapshotUtility(es, aggregateId, cb) {
+    return Promisify(() => es.snapshots[aggregateId]);
+}
+
+function resetUtility(es) {
+    es.eventStore = {};
+    es.snapshots = {};
+}
+
+function resetEmitterUtility() {
+    emitter.eventNames().forEach(e => emitter.removeAllListeners(e));
+}
+
+function emit(message, payload) {
+    emitter.emit(message, payload);
+}
+
+function on(message, cb) {
+    emitter.on(message, cb);
 }
 
 module.exports = {
     TestDbESHandler,
     save,
     getStream,
+    saveSnapshot,
+    getSnapshot,
     reset,
-    // emit,
-    // on,
-    // getSnapshot,
-    // resetEmitter,
 };
