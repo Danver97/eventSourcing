@@ -48,7 +48,11 @@ class TestDbESHandler extends EventStoreHandler {
     }
 
     getStream(streamId, cb) {
-        return Promisify(() => this.eventStore[streamId].events.map(e => Event.fromObject(e)));
+        return Promisify(() => {
+            if(!this.eventStore[streamId])
+                return [];
+            return this.eventStore[streamId].events.map(e => Event.fromObject(e));
+        });
     }
 
     saveSnapshot(aggregateId, revisionId, payload, cb) {
@@ -59,7 +63,11 @@ class TestDbESHandler extends EventStoreHandler {
     }
 
     getSnapshot(aggregateId, cb) {
-        return Promisify(() => Snapshot.fromObject(this.snapshots[aggregateId]));
+        return Promisify(() => {
+            if (!this.snapshots[aggregateId])
+                return null;
+            return Snapshot.fromObject(this.snapshots[aggregateId]);
+        });
     }
 
     reset() {
