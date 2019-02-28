@@ -64,8 +64,6 @@ function subscribe(topic, cb) {
     }, cb);
 }
 
-subscribe('microservice-test');
-
 module.exports = {
     log,
     get,
