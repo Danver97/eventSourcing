@@ -41,7 +41,7 @@ class TestDbESHandler extends EventStoreHandler {
                 this.eventStore[streamId].revision++;
             } else
                 throw new Error('Stream revision not syncronized.');
-            emit('microservice-test', payload);
+            emit('microservice-test', event);
             return event;
         }, cb);
     }
