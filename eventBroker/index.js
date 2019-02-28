@@ -19,7 +19,7 @@ implem.checkImplementation(interf, testbroker);
 let pollId = null;
 
 function startPoll(options, eventHandler, ms) {
-    pollId = setInterval(() => broker.get(options, eventHandler), ms || 10000);
+    pollId = setInterval(() => this.get(options, eventHandler), ms || 10000);
     return pollId;
 }
 
@@ -30,11 +30,11 @@ function stopPoll(id) {
 }
 
 function ignoreEvent(e, cb) {
-    return broker.hide(e, cb);
+    return this.hide(e, cb);
 }
 
 function destroyEvent(e, cb) {
-    return broker.remove(e, cb);
+    return this.remove(e, cb);
 }
 
 const eventBrokers = {
