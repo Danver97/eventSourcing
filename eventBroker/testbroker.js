@@ -1,6 +1,8 @@
 const BrokerEvent = require('./brokerEvent');
 const Promisify = require('promisify-cb');
+const emitter = require('../lib/bus');
 
+const microserviceName = process.env.MICROSERVICE_NAME;
 let queue = [];
 const visibilityTimeout = 15000;
 
@@ -58,8 +60,12 @@ function publish(e, cb) {
 }
 
 function subscribe(topic, cb) {
-    // process.on(topic, enqueueEvent);
+    return Promisify(() => {
+        emitter.on(topic, enqueueEvent);
+    }, cb);
 }
+
+subscribe(microserviceName);
 
 module.exports = {
     log,

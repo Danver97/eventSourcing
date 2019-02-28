@@ -1,16 +1,15 @@
-const EventEmitter = require('events');
 const uuidv1 = require('uuid/v1');
 const Promisify = require('promisify-cb');
 const EventStoreHandler = require('./EventStoreHandler');
 const Event = require('../event');
 const Snapshot = require('./Snapshot');
+const emitter = require('../lib/bus');
 
 let microserviceName = process.env.MICROSERVICE_NAME;
 const defaultEventStore = {
     eventStore: {},
     snapshots: {},
 };
-const emitter = new EventEmitter();
 
 function emit(message, payload) {
     emitter.emit(message, payload);
@@ -42,7 +41,7 @@ class TestDbESHandler extends EventStoreHandler {
                 this.eventStore[streamId].revision++;
             } else
                 throw new Error('Stream revision not syncronized.');
-            emit(`${event.message}`, payload);
+            emit(`${microserviceName}`, payload);
             return event;
         }, cb);
     }
