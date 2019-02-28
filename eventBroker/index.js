@@ -4,11 +4,6 @@ const implem = require('implemented');
 
 const Property = implem.Property;
 
-const eventBrokers = {
-    sqs,
-    testbroker,
-};
-
 const interf = {
     get: new Property('function', 2),
     hide: new Property('function', 2),
@@ -17,7 +12,10 @@ const interf = {
     subscribe: new Property('function', 2),
 };
 
-const broker = eventBrokers[process.env.EVENT_BROKER || 'testbroker'] || {};
+implem.checkImplementation(interf, sqs);
+implem.checkImplementation(interf, testbroker);
+
+
 let pollId = null;
 
 function startPoll(options, eventHandler, ms) {
@@ -39,6 +37,9 @@ function destroyEvent(e, cb) {
     return broker.remove(e, cb);
 }
 
-implem.checkImplementation(interf, broker);
+const eventBrokers = {
+    sqs: Object.assign({ startPoll, stopPoll, ignoreEvent, destroyEvent }, sqs),
+    testbroker: Object.assign({ startPoll, stopPoll, ignoreEvent, destroyEvent }, testbroker),
+};
 
-module.exports = Object.assign({ startPoll, stopPoll, ignoreEvent, destroyEvent }, broker);
+module.exports = eventBrokers;
