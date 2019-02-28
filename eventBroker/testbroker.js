@@ -41,7 +41,7 @@ function checkIfEvent(e) {
 // Broker methods implementation
 
 function get(options, cb) {
-    return Promisify(() => { return dequeueEvents(options.number, options.visibilityTimeout); }, cb);
+    return Promisify(() => dequeueEvents(options.number, options.visibilityTimeout), cb);
 }
 
 function hide(e, cb) {
