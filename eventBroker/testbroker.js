@@ -52,7 +52,7 @@ function hide(e, cb) {
 function remove(e, cb) {
     checkIfEvent(e);
     return Promisify(() => {
-        queue = queue.filter(ev => ev.id !== e.id);
+        queue = queue.filter(ev => ev.streamId !== e.streamId && ev.eventId !== e.eventId);
         clearTimeout(e._timeoutId);
     }, cb);
 }
