@@ -16,11 +16,12 @@ function enqueueEvent(e) {
 }
 
 function dequeueEvent(timeout) {
-    const e = queue.shift();
+    let e = queue.shift();
     if (!e)
         return e;
-    setTimeout(() => queue.splice(0, 0, e), timeout || visibilityTimeout);
-    return BrokerEvent.fromObject(e);
+    e = BrokerEvent.fromObject(e);
+    e._timeoutId = setTimeout(() => queue.splice(0, 0, e), timeout || visibilityTimeout);
+    return e;
 }
 
 function dequeueEvents(number, timeout) {
@@ -50,7 +51,10 @@ function hide(e, cb) {
 
 function remove(e, cb) {
     checkIfEvent(e);
-    return Promisify(() => { queue = queue.filter(ev => ev.id !== e.id); }, cb);
+    return Promisify(() => {
+        queue = queue.filter(ev => ev.id !== e.id);
+        clearTimeout(e._timeoutId);
+    }, cb);
 }
 
 function publish(e, cb) {
