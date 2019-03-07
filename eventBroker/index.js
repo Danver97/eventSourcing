@@ -12,10 +12,6 @@ const interf = {
     subscribe: new Property('function', 2),
 };
 
-implem.checkImplementation(interf, sqs);
-implem.checkImplementation(interf, testbroker);
-
-
 let pollId = null;
 
 function startPoll(options, eventHandler, ms) {

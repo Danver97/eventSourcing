@@ -31,8 +31,8 @@ function queueName(name) {
     return Promisify(async () => {
         const url = await sqsConfig.getQueueUrl();
         const params = {
-            MessageBody: JSON.stringify(event), /* required */
-            QueueUrl: url, /* required */
+            MessageBody: JSON.stringify(event),
+            QueueUrl: url,
             DelaySeconds: 0,
             MessageAttributes: {
                 StreamId: {
