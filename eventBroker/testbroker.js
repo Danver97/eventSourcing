@@ -133,7 +133,7 @@ class TestBrokerHandler extends EventBrokerHandler {
 
     subscribe(topic, cb) {
         return Promisify(() => {
-            emitter.on(topic, this.enqueueEvent);
+            emitter.on(topic, e => this.enqueueEvent(e));
         }, cb);
     }
 }

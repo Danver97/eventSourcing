@@ -1,12 +1,13 @@
 const assert = require('assert');
-const broker = require('../eventBroker')['sqs'];
+const broker = require('../eventBroker')['testbroker'];
+const testdb = require('../eventStore')['testdb'];
 const BrokerEvent = require('../eventBroker/brokerEvent');
 
 console.log(broker.publish);
 
 const timeout = 10;
 const visibilityTimeout = 1000;
-const pollInterval = 500;
+const pollInterval = 10;
 const waitAsync = ms => new Promise(resolve => setTimeout(resolve, ms));
 const waitSync = ms => {
     const date = new Date();
@@ -29,6 +30,7 @@ describe('Event broker unit test', function () {
     let totalEventsLenght = null;
 
     before(async function () {
+        await broker.subscribe('microservice-test');
     });
 
     it('Publish event', async function () {
@@ -38,6 +40,10 @@ describe('Event broker unit test', function () {
             console.log(e);
             throw e;
         }
+    });
+
+    it('get from testdb', async function () {
+        await testdb.save('streamId', 'streamId', 'message', { payload: 'payload' });
     });
 
     it('poll', function (done) {
