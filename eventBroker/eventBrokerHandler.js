@@ -5,23 +5,23 @@ class EventBrokerHandler {
         this.eventBrokerName = eventBrokerName;
     }
 
-    get(streamId, eventId, message, payload, cb) {
+    getEvent(options, cb) {
         throw new EventStoreError('get() not implemented');
     }
 
-    hide(aggregateId, revisionId, payload, cb) {
+    hide(e, cb) {
         throw new EventStoreError('hide() not implemented');
     }
 
-    publish(streamId, cb) {
+    publish(e, cb) {
         throw new EventStoreError('publish() not implemented');
     }
 
-    remove(aggregateId, cb) {
+    remove(e, cb) {
         throw new EventStoreError('remove() not implemented');
     }
 
-    subscribe() {
+    subscribe(topic, cb) {
         throw new EventStoreError('subscribe() not implemented');
     }
 }

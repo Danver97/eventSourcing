@@ -107,7 +107,7 @@ class TestBrokerHandler extends EventBrokerHandler {
 
     // Broker methods implementation
 
-    get(options, cb) {
+    getEvent(options, cb) {
         return Promisify(() => this.dequeueEvents(options.number, options.visibilityTimeout), cb);
     }
 

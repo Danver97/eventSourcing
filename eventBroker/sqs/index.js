@@ -132,7 +132,7 @@ class SqsBrokerHandler extends EventBrokerHandler {
         });
     }
 
-    get(options, cb) {
+    getEvent(options, cb) {
         return Promisify(async () => {
             const url = await sqsConfig.getQueueUrl(this.queueName);
             const params = {

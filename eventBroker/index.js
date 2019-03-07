@@ -15,7 +15,7 @@ const interf = {
 let pollId = null;
 
 function startPoll(options, eventHandler, ms) {
-    pollId = setInterval(() => this.get(options, eventHandler), ms || 10000);
+    pollId = setInterval(() => this.getEvent(options, eventHandler), ms || 10000);
     return pollId;
 }
 
