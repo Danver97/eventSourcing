@@ -33,9 +33,17 @@ function destroyEvent(e, cb) {
     return this.remove(e, cb);
 }
 
+function assignMethods(broker) {
+    broker.startPoll = startPoll.bind(broker);
+    broker.stopPoll = stopPoll.bind(broker);
+    broker.ignoreEvent = ignoreEvent.bind(broker);
+    broker.destroyEvent = destroyEvent.bind(broker);
+    return broker
+}
+
 const eventBrokers = {
-    sqs: Object.assign({ startPoll, stopPoll, ignoreEvent, destroyEvent }, sqs),
-    testbroker: Object.assign({ startPoll, stopPoll, ignoreEvent, destroyEvent }, testbroker),
+    sqs: assignMethods(sqs),
+    testbroker: assignMethods(testbroker),
 };
 
 module.exports = eventBrokers;

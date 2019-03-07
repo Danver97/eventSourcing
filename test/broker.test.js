@@ -1,9 +1,8 @@
 const assert = require('assert');
-const ENV = require('../src/env');
-const AWS = require('../lib/AWS');
-const broker = require('../lib/eventSourcing/eventBroker');
-const BrokerEvent = require('../lib/eventSourcing/eventBroker/brokerEvent');
-const delayedTestAsync = require('../lib/utils').delayedTestAsync;
+const broker = require('../eventBroker')['sqs'];
+const BrokerEvent = require('../eventBroker/brokerEvent');
+
+console.log(broker.publish);
 
 const timeout = 10;
 const visibilityTimeout = 1000;
@@ -12,7 +11,7 @@ const waitAsync = ms => new Promise(resolve => setTimeout(resolve, ms));
 const waitSync = ms => {
     const date = new Date();
     let curDate = new Date();
-    while (curDate - date < ms) 
+    while (curDate - date < ms)
         curDate = new Date();
 };
 
@@ -28,12 +27,10 @@ describe('Event broker unit test', function () {
     const publishedEvent = new BrokerEvent('1', '1', 'provaEvent', { message: 'Prova evento' }, 1);
     let receivedEvent = null;
     let totalEventsLenght = null;
-    
+
     before(async function () {
-        this.timeout(10000);
-        await AWS.init();
     });
-    
+
     it('Publish event', async function () {
         try {
             await broker.publish(publishedEvent);
@@ -42,11 +39,11 @@ describe('Event broker unit test', function () {
             throw e;
         }
     });
-    
+
     it('poll', function (done) {
         this.timeout(5000);
         waitSync(timeout);
-        
+
         const options = { visibilityTimeout };
         broker.startPoll(options, (err, e) => {
             receivedEvent = e[0];
@@ -62,16 +59,12 @@ describe('Event broker unit test', function () {
                 done();
         }, pollInterval);
     });
-    
-    /* it('ignoreEvent', delayedTestAsync(async () => {
-        await broker.ignoreEvent(receivedEvent);
-    }, visibilityTimeout + timeout)); */
-    
+
     it('ignoreEvent', function (done) {
         this.timeout(visibilityTimeout + timeout + 2000);
         setTimeout(async () => {
             await broker.ignoreEvent(receivedEvent);
-            
+
             const options = { visibilityTimeout };
             broker.startPoll(options, (err, e) => {
                 totalEventsLenght = e.length;
@@ -88,7 +81,7 @@ describe('Event broker unit test', function () {
             }, pollInterval);
         }, visibilityTimeout + timeout);
     });
-    
+
     it('destroyEvent', function (done) {
         this.timeout(visibilityTimeout + timeout + 2000);
         setTimeout(async () => {

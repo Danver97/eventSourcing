@@ -6,6 +6,13 @@ const emitter = require('../lib/bus');
 const microserviceName = process.env.MICROSERVICE_NAME;
 
 const visibilityTimeout = 15000;
+
+
+function checkIfEvent(e) {
+    if (!(e instanceof BrokerEvent))
+        throw new Error('Event Broker: provided object is not an instance of Event');
+}
+
 /* let queue = [];
 
 function log(silent) {
@@ -34,11 +41,6 @@ function dequeueEvents(number, timeout) {
     for (let i = 0; i < number; i++)
         events.push(dequeueEvent(timeout));
     return events;
-}
-
-function checkIfEvent(e) {
-    if (!(e instanceof BrokerEvent))
-        throw new Error('Event Broker: provided object is not an instance of Event');
 }
 
 // Broker methods implementation
