@@ -12,7 +12,7 @@ const interf = {
     subscribe: new Property('function', 2),
 };
 
-let pollId = null;
+/* let pollId = null;
 
 function startPoll(options, eventHandler, ms) {
     pollId = setInterval(() => this.getEvent(options, eventHandler), ms || 10000);
@@ -39,11 +39,11 @@ function assignMethods(broker) {
     broker.ignoreEvent = ignoreEvent.bind(broker);
     broker.destroyEvent = destroyEvent.bind(broker);
     return broker
-}
+} */
 
 const eventBrokers = {
-    sqs: assignMethods(sqs),
-    testbroker: assignMethods(testbroker),
+    sqs, //: assignMethods(sqs),
+    testbroker, //: assignMethods(testbroker),
 };
 
 module.exports = eventBrokers;
