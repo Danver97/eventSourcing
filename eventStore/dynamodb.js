@@ -11,6 +11,17 @@ let dynamoDb = ddbConfig.ddb;
 let microserviceName = process.env.MICROSERVICE_NAME;
 const snapshotTag = 'Snapshot';
 
+function stringHashCode(string) {
+    var hash = 0, i, chr;
+    if (string.length === 0) return hash;
+    for (i = 0; i < string.length; i++) {
+        chr = string.charCodeAt(i);
+        hash = ((hash << 5) - hash) + chr;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+};
+
 function getTableName(microserviceName) {
     return `${microserviceName}EventStreamTable`;
 }
@@ -50,6 +61,8 @@ class DynamoDBESHandler extends EventStoreHandler {
                 ':eid': eId, /* 1 */ // OCCHIO QUIIIII!
                 ':message': message,
                 ':payload': payload,
+                ':rsid': stringHashCode(streamId) % 5,
+                ':rssortkey': `${streamId}:${eId}`,
             });
             removeEmptySetsOrStrings(attrValues);
             const params = {
@@ -60,9 +73,11 @@ class DynamoDBESHandler extends EventStoreHandler {
                     '#EID': 'EventId',
                     '#MSG': 'Message',
                     '#PL': 'Payload',
+                    '#RSID': 'ReplayStreamId',
+                    '#RSSK': 'RSSortKey',
                 },
                 ExpressionAttributeValues: attrValues,
-                UpdateExpression: 'SET #MSG = :message, #PL = :payload',
+                UpdateExpression: 'SET #MSG = :message, #PL = :payload, #RSID = :rsid, #RSSK = :rssortkey',
                 ConditionExpression: '#SID <> :sid AND #EID <> :eid', // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
                 ReturnValues: 'ALL_NEW',
                 ReturnItemCollectionMetrics: 'SIZE',
