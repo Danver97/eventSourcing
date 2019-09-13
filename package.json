@@ -21,7 +21,8 @@
     "@danver97/aws-config": "^1.0.3",
     "dynamodb-data-types": "^3.0.1",
     "implemented": "^1.0.0",
-    "promisify-cb": "^1.0.0"
+    "promisify-cb": "^1.0.0",
+    "string-hash": "^1.1.3"
   },
   "devDependencies": {
     "mocha": "^5.2.0"
