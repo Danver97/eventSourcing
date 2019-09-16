@@ -1,5 +1,6 @@
 const AWSinit = require('@danver97/aws-config')();
 const Promisify = require('promisify-cb');
+const attr = require('dynamodb-data-types').AttributeValue;
 const EventBrokerHandler = require('../eventBrokerHandler');
 const Event = require('../../event');
 const SqsEvent = require('./sqsEvent');
@@ -68,8 +69,14 @@ class SqsBrokerHandler extends EventBrokerHandler {
             if (options.visibilityTimeout) // && Math.floor(options.visibilityTimeout / 1000) != 0
                 params.VisibilityTimeout = Math.floor(options.visibilityTimeout / 1000);
             const response = await sqs.receiveMessage(params).promise();
+            if (!response.Messages)
+                return [];
             return response.Messages.map(m => {
-                const event = JSON.parse(m.Body);
+                const message = JSON.parse(m.Body);
+                const dbEvent = JSON.parse(message.Message);
+                if (dbEvent.SequenceNumber && !dbEvent.SequenceNumber.S)
+                    dbEvent.SequenceNumber = { S: dbEvent.SequenceNumber };
+                const event = attr.unwrap(dbEvent);
                 event.MessageId = m.MessageId;
                 event.ReceiptHandle = m.ReceiptHandle;
                 return SqsEvent.fromObject(event);
