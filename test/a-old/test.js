@@ -1,6 +1,6 @@
-const broker = require('../eventBroker')['testbroker'];
-const store = require('../eventStore')['testdb'];
-const Event = require('../eventBroker/brokerEvent');
+const broker = require('../../eventBroker')['testbroker'];
+const store = require('../../eventStore')['testdb'];
+const Event = require('../../eventBroker/brokerEvent');
 
 let pollId = null;
 
