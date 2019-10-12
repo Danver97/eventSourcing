@@ -50,7 +50,7 @@ class TestDbESHandler extends EventStoreHandler {
         return Promisify(() => {
             if(!this.eventStore[streamId])
                 return [];
-            return this.eventStore[streamId].events.map(e => Event.fromObject(e));
+            return this.eventStore[streamId].events.map(e => Event.fromObject(JSON.parse(JSON.stringify(e))));
         });
     }
 
