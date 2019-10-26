@@ -35,7 +35,7 @@ class TestDbESHandler extends EventStoreHandler {
                 this.eventStore[streamId] = { streamId, revision: 0, events: [] };
             const revision = this.eventStore[streamId].revision;
 
-            const event = new Event(streamId, eventId || this.eventStore[streamId].events.length, message, Object.assign({}, payload));
+            const event = new Event(streamId, eventId || this.eventStore[streamId].events.length, message, JSON.parse(JSON.stringify(payload)));
             if (revision === this.eventStore[streamId].revision) {
                 this.eventStore[streamId].events.push(event);
                 this.eventStore[streamId].revision++;
