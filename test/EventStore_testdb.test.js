@@ -30,9 +30,6 @@ describe('Event store unit test', async function () {
         await es.save(event.streamId, event.eventId - 1, event.message, event.payload);
         const stream = es.eventStore[event.streamId].events;
         assert.deepStrictEqual(stream, [event]);
-        stream.forEach(e => {
-            assert.ok(e instanceof Event);
-        });
         assert.ok(nodeEventPublished);
 
         await assert.rejects(() => es.save(event.streamId, event.eventId - 1, event.message, event.payload), EventStoreError);

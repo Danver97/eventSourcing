@@ -72,6 +72,48 @@ class DynamoUtils extends BaseUtils {
         }).promise();
         return response.TableDescription.LatestStreamArn;
     }
+
+    async buildSnapshotTable(TableName, options = {}) {
+        const { RCU = 5, WCU = 5 } = options;
+        const response = await this.ddb.createTable({
+            TableName,
+            AttributeDefinitions: [
+                {
+                    AttributeName: "StreamId",
+                    AttributeType: "S"
+                },
+                {
+                    AttributeName: "RevisionId",
+                    AttributeType: "N"
+                },
+            ],
+            KeySchema: [
+                {
+                    AttributeName: "StreamId",
+                    KeyType: "HASH"
+                },
+                {
+                    AttributeName: "RevisionId",
+                    KeyType: "RANGE"
+                }
+            ],
+            StreamSpecification: {
+                StreamEnabled: true,
+                StreamViewType: 'NEW_AND_OLD_IMAGES',
+            },
+            ProvisionedThroughput: {
+                ReadCapacityUnits: RCU,
+                WriteCapacityUnits: WCU
+            },
+            Tags: [
+                {
+                    Key: 'Environment',
+                    Value: this.environment,
+                },
+            ]
+        }).promise();
+        return response.TableDescription.LatestStreamArn;
+    }
     
     async buildOrderControlTable(TableName, options = {}) {
         const { RCU = 5, WCU = 5 } = options;
