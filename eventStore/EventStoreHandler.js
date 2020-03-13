@@ -1,4 +1,4 @@
-const EventStoreError = require('./errors/event_store_error');
+const EventStoreError = require('./errors/event_store.error');
 
 class EventStoreHandler {
     constructor(eventStoreName) {

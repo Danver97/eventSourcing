@@ -3,6 +3,7 @@ const Promisify = require('promisify-cb');
 const EventStoreHandler = require('./EventStoreHandler');
 const Event = require('../event');
 const Snapshot = require('./Snapshot');
+const EventStoreError = require('./errors/event_store.error');
 const emitter = require('../lib/bus');
 
 let microserviceName = process.env.MICROSERVICE_NAME;
@@ -19,6 +20,10 @@ function on(message, cb) {
     emitter.on(message, cb);
 }
 
+function toJSON(obj) {
+    return JSON.parse(JSON.stringify(obj));
+}
+
 class TestDbESHandler extends EventStoreHandler {
     constructor(eventStoreName) {
         super(eventStoreName);
@@ -26,9 +31,25 @@ class TestDbESHandler extends EventStoreHandler {
         this.snapshots = {};
     }
 
-    save(streamId, eventId, message, payload, cb) {
+    /**
+     * Saves an event into the event store
+     * @param {string} streamId Event stream id to which write the event
+     * @param {number} revisionId The current revision the stream is believed to be
+     * @param {string} message The event name
+     * @param {object} payload Payload of the event
+     * @param {function} cb Asynchronous callback
+     */
+    save(streamId, revisionId, message, payload, cb) {
+        if (!streamId || typeof streamId !== 'string')
+            throw EventStoreError.paramError(`'streamId' must be a string. Found: ${typeof streamId}`);
+        if ((!revisionId && revisionId !== 0) || typeof revisionId !== 'number')
+            throw EventStoreError.paramError(`'revisionId' must be a number. Found: ${typeof revisionId}`);
+        if (!message || typeof message !== 'string')
+            throw EventStoreError.paramError(`'message' must be a number. Found: ${typeof message}`);
+        if (!payload)
+            throw EventStoreError.paramError(`Missing 'payload' parameter`);
         return Promisify(() => {
-            let eId = eventId || payload._revisionId || 0;
+            let eId = revisionId || payload._revisionId || 0;
             eId++;
             delete payload._revisionId;
             if (!streamId)
@@ -37,38 +58,65 @@ class TestDbESHandler extends EventStoreHandler {
                 this.eventStore[streamId] = { streamId, revision: 0, events: [] };
             const revision = this.eventStore[streamId].revision;
 
-            const event = new Event(streamId, eId, message, JSON.parse(JSON.stringify(payload)));
-            if (revision === this.eventStore[streamId].revision) {
+            const event = new Event(streamId, eId, message, toJSON(payload));
+            if (revision + 1 === eId) {
                 this.eventStore[streamId].events.push(event);
                 this.eventStore[streamId].revision++;
             } else
-                throw new Error('Stream revision not syncronized.');
+                throw EventStoreError.eventAlreadyExistsError('Stream revision not syncronized.');
             emit('microservice-test', event);
             return event;
         }, cb);
     }
 
+    /**
+     * Return the stream of events written to the specified event stream
+     * @param {string} streamId The stream id
+     * @param {function} cb Asynchronous callback
+     */
     getStream(streamId, cb) {
+        if (!streamId || typeof streamId !== 'string')
+            throw EventStoreError.paramError(`'streamId' must be a string. Found: ${typeof streamId}`);
         return Promisify(() => {
             if(!this.eventStore[streamId])
                 return [];
-            return this.eventStore[streamId].events.map(e => Event.fromObject(JSON.parse(JSON.stringify(e))));
-        });
+            return this.eventStore[streamId].events.map(e => Event.fromObject(toJSON(e)));
+        }, cb);
     }
 
-    saveSnapshot(aggregateId, revisionId, payload, cb) {
+    /**
+     * Saves a snapshot of the provided event stream
+     * @param {string} streamId The stream id of which this snapshot belongs
+     * @param {number} revisionId The last processed event in computing this aggregate
+     * @param {object} payload Payload of snapshot
+     * @param {function} cb Asynchronous callback
+     */
+    saveSnapshot(streamId, revisionId, payload, cb) {
+        if (!streamId || typeof streamId !== 'string')
+            throw EventStoreError.paramError(`'streamId' must be a string. Found: ${typeof streamId}`);
+        if ((!revisionId && revisionId !== 0) || typeof revisionId !== 'number')
+            throw EventStoreError.paramError(`'revisionId' must be a number. Found: ${typeof revisionId}`);
+        if (!payload)
+            throw EventStoreError.paramError(`Missing 'payload' parameter`);
         return Promisify(() => {
-            const snapshot = new Snapshot(aggregateId, revisionId, payload);
-            this.snapshots[aggregateId] = snapshot;
-        });
+            const snapshot = new Snapshot(streamId, revisionId, toJSON(payload));
+            this.snapshots[streamId] = snapshot;
+        }, cb);
     }
 
-    getSnapshot(aggregateId, cb) {
+    /**
+     * Retrieves the snapshot of the provided event stream
+     * @param {string} streamId The stream id of which the snapshot belongs
+     * @param {function} cb Asynchronous callback
+     */
+    getSnapshot(streamId, cb) {
+        if (!streamId || typeof streamId !== 'string')
+            throw EventStoreError.paramError(`'streamId' must be a string. Found: ${typeof streamId}`);
         return Promisify(() => {
-            if (!this.snapshots[aggregateId])
+            if (!this.snapshots[streamId])
                 return null;
-            return Snapshot.fromObject(this.snapshots[aggregateId]);
-        });
+            return Snapshot.fromObject(this.snapshots[streamId]);
+        }, cb);
     }
 
     reset() {
@@ -80,52 +128,6 @@ class TestDbESHandler extends EventStoreHandler {
         emitter.eventNames().forEach(e => emitter.removeAllListeners(e));
     }
 }
-
-/* Utility functions */
-/*
-function saveUtility(es, streamId, eventId, message, payload, cb) {
-    return Promisify(() => {
-        delete payload._revisionId;
-        if (!streamId)
-            streamId = uuidv1();
-        if (!es.eventStore[streamId])
-            es.eventStore[streamId] = { streamId, revision: 0, events: [] };
-        const revision = es.eventStore[streamId].revision;
-
-        const event = new Event(streamId, eventId || es.eventStore[streamId].events.length, message, Object.assign({}, payload));
-        if (revision === es.eventStore[streamId].revision) {
-            es.eventStore[streamId].events.push(event);
-            es.eventStore[streamId].revision++;
-        } else
-            throw new Error('Stream revision not syncronized.');
-        emit(`${event.message}`, payload);
-        return event;
-    }, cb);
-}
-
-function getStreamUtility(es, streamId, cb) {
-    return Promisify(() => es.eventStore[streamId].events.map(e => Event.fromObject(e)));
-}
-
-function saveSnapshotUtility(es, aggregateId, revisionId, payload, cb) {
-    return Promisify(() => {
-        es.snapshots[aggregateId] = { revision: revisionId, payload };
-    });
-}
-
-function getSnapshotUtility(es, aggregateId, cb) {
-    return Promisify(() => es.snapshots[aggregateId]);
-}
-
-function resetUtility(es) {
-    es.eventStore = {};
-    es.snapshots = {};
-}
-
-function resetEmitterUtility() {
-    emitter.eventNames().forEach(e => emitter.removeAllListeners(e));
-}
-*/
 
 const defaultHandler = new TestDbESHandler(microserviceName);
 defaultHandler.EsHandler = TestDbESHandler;
