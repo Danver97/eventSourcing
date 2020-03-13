@@ -19,6 +19,7 @@
   "license": "ISC",
   "dependencies": {
     "@danver97/aws-config": "^1.0.3",
+    "adm-zip": "^0.4.14",
     "dynamodb-data-types": "^3.0.1",
     "implemented": "^1.0.0",
     "promisify-cb": "^1.0.0",
