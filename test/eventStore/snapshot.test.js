@@ -1,5 +1,5 @@
 const assert = require('assert');
-const Snapshot = require('../eventStore/Snapshot');
+const Snapshot = require('../../eventStore/Snapshot');
 
 describe('Event class unit test', function () {
     const snapObj = { streamId: 'aioaoida', revisionId: 1, payload: { field: 'value1' } };

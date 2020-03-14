@@ -3,11 +3,11 @@ const uuid = require('uuid').v4;
 const assert = require('assert');
 const AWS = require('aws-sdk');
 const stringHash = require('string-hash');
-const es = require('../eventStore')['dynamodb'];
-const Event = require('../event');
-const Snapshot = require('../eventStore/Snapshot');
-const EventStoreError = require('../eventStore/errors/event_store.error');
-const emitter = require('../lib/bus');
+const es = require('../../eventStore')['dynamodb'];
+const Event = require('../../event');
+const Snapshot = require('../../eventStore/Snapshot');
+const EventStoreError = require('../../eventStore/errors/event_store.error');
+const emitter = require('../../lib/bus');
 const DynamoDataTypes = require('dynamodb-data-types');
 
 const dynamoAttr = DynamoDataTypes.AttributeValue;

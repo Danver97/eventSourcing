@@ -95,17 +95,21 @@ describe('Sqs Broker test', function () {
     });
     beforeEach(() => {
         publishedEvent = new BrokerEvent(uuid(), 1, 'provaEvent', { message: 'Prova evento' });
-        // console.log(publishedEvent.streamId);
+        console.log('new event:', publishedEvent.streamId);
     });
     afterEach(async function () {
-        this.timeout(22000);
+        this.timeout(25000);
+        await waitAsync(3500);
         const messages = (await sqs.receiveMessage({
             QueueUrl,
             MaxNumberOfMessages: 10,
             WaitTimeSeconds: 20,
         }).promise()).Messages;
         if (messages)
-            await Promise.all(messages.map(m => sqs.deleteMessage({ QueueUrl, ReceiptHandle: m.ReceiptHandle }).promise()));
+            await Promise.all(messages.map(m => {
+                console.log('Msg cleaned:', JSON.parse(m.Body).streamId || JSON.parse(JSON.parse(m.Body).Message).streamId);
+                return sqs.deleteMessage({ QueueUrl, ReceiptHandle: m.ReceiptHandle }).promise();
+            }));
     });
 
     it('check publish works', async function () {
@@ -167,9 +171,9 @@ describe('Sqs Broker test', function () {
         assert.notStrictEqual(actualEvent.receiptHandle, '');
     });
 
-    it('check remove works (~20s)', async function () {
-        this.timeout(27000);
-        this.slow(23000);
+    it('check remove works (~30s)', async function () {
+        this.timeout(36000);
+        this.slow(26000);
         assert.throws(() => broker.remove(), Error);
         assert.throws(() => broker.remove('event'), Error);
         assert.throws(() => broker.remove({}), Error);
@@ -178,9 +182,14 @@ describe('Sqs Broker test', function () {
             QueueUrl,
             MessageBody: JSON.stringify(publishedEvent),
         }).promise();
+        await waitAsync(3500);
 
         let events = await broker.getEvent({ number: 10 });
-        await Promise.all(events.map(e => broker.remove(e)));
+        await Promise.all(events.map(e => {
+            console.log(e.streamId)
+            return broker.remove(e);
+        }));
+        // await waitAsync(3000);
 
         await sqs.sendMessage({
             QueueUrl,
@@ -188,7 +197,11 @@ describe('Sqs Broker test', function () {
         }).promise();
 
         events = await broker.getEvent({ number: 10 });
-        await Promise.all(events.map(e => broker.remove(e)));
+        await Promise.all(events.map(e => {
+            console.log(e.streamId)
+            return broker.remove(e);
+        }));
+        // await waitAsync(3000);
 
         // Check there are no more events
         events = await broker.getEvent({ number: 10 });

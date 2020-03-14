@@ -1,10 +1,10 @@
 process.env.MICROSERVICE_NAME = 'provaMicroservice';
 const assert = require('assert');
-const es = require('../eventStore')['testdb'];
-const Event = require('../event');
-const Snapshot = require('../eventStore/Snapshot');
-const EventStoreError = require('../eventStore/errors/event_store.error');
-const emitter = require('../lib/bus');
+const es = require('../../eventStore')['testdb'];
+const Event = require('../../event');
+const Snapshot = require('../../eventStore/Snapshot');
+const EventStoreError = require('../../eventStore/errors/event_store.error');
+const emitter = require('../../lib/bus');
 
 function toJSON(obj) {
     return JSON.parse(JSON.stringify(obj));
