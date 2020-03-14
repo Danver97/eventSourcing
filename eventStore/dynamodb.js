@@ -32,9 +32,9 @@ function removeEmptySetsOrStrings(attrValues) {
             return;
         if (attrValues[k].S !== undefined && attrValues[k].S === '')
             delete attrValues[k];
-        if (attrValues[k].NS && attrValues[k].NS.length === 0)
+        else if (attrValues[k].NS && attrValues[k].NS.length === 0)
             delete attrValues[k];
-        if (attrValues[k] && attrValues[k].M)
+        else if (attrValues[k] && attrValues[k].M)
             removeEmptySetsOrStrings(attrValues[k].M);
     });
 }

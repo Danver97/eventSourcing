@@ -36,8 +36,8 @@ describe('Event store unit test', async function () {
 
     this.beforeEach(() => {
         const streamId = uuid();
-        event = new Event(streamId, 1, 'event1', { name: 'event1' });
-        snapshot = new Snapshot(streamId, 15, { name: 'snapshot1' });
+        event = new Event(streamId, 1, 'event1', { name: 'event1', emptyArray: [], emptyString: '', emptyMap: {} });
+        snapshot = new Snapshot(streamId, 15, { name: 'snapshot1', emptyArray: [], emptyString: '', emptyMap: {} });
     });
 
     this.afterEach(async () => {
@@ -62,7 +62,11 @@ describe('Event store unit test', async function () {
             ExpressionAttributeValues: dynamoAttr.wrap({ ':streamId': event.streamId, ':first': 0, ':last': Number.MAX_SAFE_INTEGER }),
             KeyConditionExpression: 'StreamId = :streamId AND EventId BETWEEN :first AND :last',
         }).promise();
+
         const stream = response.Items.map(i => dynamoAttr.unwrap(i)).map(e => Event.fromObject(e));
+
+        delete event.payload.emptyArray;
+        delete event.payload.emptyString;
         assert.deepStrictEqual(stream, [event]);
         assert.ok(nodeEventPublished);
 
@@ -77,6 +81,8 @@ describe('Event store unit test', async function () {
     it('check getStream works', async function () {
         assert.throws(() => es.getStream(), EventStoreError);
 
+        delete event.payload.emptyArray;
+        delete event.payload.emptyString;
         await ddb.updateItem({
             TableName: eventStreamTable,
             Key: dynamoAttr.wrap({ StreamId: event.streamId, EventId: event.eventId /* 1 */ }), // OCCHIO QUIIIII!
@@ -102,7 +108,9 @@ describe('Event store unit test', async function () {
             ReturnItemCollectionMetrics: 'SIZE',
             ReturnConsumedCapacity: 'INDEXES',
         }).promise();
+
         const stream = await es.getStream(event.streamId);
+
         assert.deepStrictEqual(stream, [event]);
         stream.forEach(e => {
             assert.ok(e instanceof Event);
@@ -123,12 +131,17 @@ describe('Event store unit test', async function () {
         }).promise();
         
         const snap = response.Items.map(i => dynamoAttr.unwrap(i)).map(e => Snapshot.fromObject(e))[0];
+
+        delete snapshot.payload.emptyArray;
+        delete snapshot.payload.emptyString;
         assert.deepStrictEqual(snap, snapshot);
     });
 
     it('check getSnapshot works', async function () {
         assert.throws(() => es.getSnapshot(), EventStoreError);
 
+        delete snapshot.payload.emptyArray;
+        delete snapshot.payload.emptyString;
         await ddb.updateItem({
             TableName: snapshotTable,
             Key: dynamoAttr.wrap({ StreamId: snapshot.streamId, RevisionId: snapshot.revisionId /* 1 */ }), // OCCHIO QUIIIII!
