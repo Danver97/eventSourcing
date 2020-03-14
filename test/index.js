@@ -1,6 +1,5 @@
 require('./event.test');
 require('./snapshot.test');
-require('./broker.test');
-require('./brokers/sqsbroker.test');
+require('./eventBroker');
 require('./eventStore_testdb.test');
 require('./eventStores/dynamodb.test');

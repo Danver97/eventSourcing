@@ -31,6 +31,21 @@ class SqsBrokerHandler extends EventBrokerHandler {
         this.queueName = queueName(eventBrokerName);
     }
 
+    _openMessageEnvelope(messageBody) {
+        const obj = JSON.parse(messageBody);
+        if (obj.Message)
+            return JSON.parse(obj.Message);
+        return obj;
+    }
+
+    _unwrap(obj) {
+        try {
+            return attr.unwrap(obj);
+        } catch (err) {
+            return obj;
+        }
+    }
+
     publish(event, cb) {
         checkIfEvent(event);
         return Promisify(async () => {
@@ -45,8 +60,8 @@ class SqsBrokerHandler extends EventBrokerHandler {
                         StringValue: event.streamId,
                     },
                     EventId: {
-                        DataType: 'String',
-                        StringValue: event.eventId,
+                        DataType: 'Number',
+                        StringValue: `${event.eventId}`,
                     },
                     Message: {
                         DataType: 'String',
@@ -72,11 +87,11 @@ class SqsBrokerHandler extends EventBrokerHandler {
             if (!response.Messages)
                 return [];
             return response.Messages.map(m => {
-                const message = JSON.parse(m.Body);
-                const dbEvent = JSON.parse(message.Message);
+                // const message = JSON.parse(m.Body);
+                const dbEvent = this._openMessageEnvelope(m.Body); // JSON.parse(message.Message);
                 if (dbEvent.SequenceNumber && !dbEvent.SequenceNumber.S)
                     dbEvent.SequenceNumber = { S: dbEvent.SequenceNumber };
-                const event = attr.unwrap(dbEvent);
+                const event = this._unwrap(dbEvent);
                 event.MessageId = m.MessageId;
                 event.ReceiptHandle = m.ReceiptHandle;
                 return SqsEvent.fromObject(event);

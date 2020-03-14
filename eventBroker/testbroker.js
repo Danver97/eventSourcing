@@ -39,17 +39,26 @@ class TestBrokerHandler extends EventBrokerHandler {
     }
 
     dequeueEvents(number, timeout) {
+        if (typeof number !== 'number' && typeof number !== 'undefined')
+            throw new Error('\'number\' is optional and can be only a number')
         if (!number)
             return [this.dequeueEvent(timeout)];
         const events = [];
-        for (let i = 0; i < number; i++)
+        for (let i = 0; i < Math.min(number, this.queue.length); i++)
             events.push(this.dequeueEvent(timeout));
         return events;
     }
 
     // Broker methods implementation
 
-    getEvent(options, cb) {
+    /**
+     * Retrives a bunch of events
+     * @param {object} options 
+     * @param {number} options.number
+     * @param {number} options.visibilityTimeout
+     * @param {function} cb Asynchronous callback
+     */
+    getEvent(options = {}, cb) {
         return Promisify(() => this.dequeueEvents(options.number, options.visibilityTimeout), cb);
     }
 
@@ -75,6 +84,10 @@ class TestBrokerHandler extends EventBrokerHandler {
         return Promisify(() => {
             emitter.on(topic, e => this.enqueueEvent(e));
         }, cb);
+    }
+
+    reset() {
+        this.queue = [];
     }
 }
 
