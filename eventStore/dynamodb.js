@@ -46,6 +46,14 @@ class DynamoDBESHandler extends EventStoreHandler {
         this.snapshotsTableName = getSnapshotTableName(this.eventStoreName);
     }
 
+    /**
+     * Saves an event into the event store
+     * @param {string} streamId Event stream id to which write the event
+     * @param {number} revisionId The current revision the stream is believed to be
+     * @param {string} message The event name
+     * @param {object} payload Payload of the event
+     * @param {function} cb Asynchronous callback
+     */
     save(streamId, revisionId, message, payload, cb) {
         if (!streamId || typeof streamId !== 'string')
             throw EventStoreError.paramError(`'streamId' must be a string. Found: ${typeof streamId}`);
@@ -100,6 +108,12 @@ class DynamoDBESHandler extends EventStoreHandler {
         }, cb);
     }
 
+    /**
+     * Return the stream of events written to the specified event stream
+     * @param {string} streamId The stream id
+     * @param {function} cb Asynchronous callback
+     * @returns {Event[]}
+     */
     getStream(streamId, cb) {
         if (!streamId || typeof streamId !== 'string')
             throw EventStoreError.paramError(`'streamId' must be a string. Found: ${typeof streamId}`);
@@ -116,6 +130,13 @@ class DynamoDBESHandler extends EventStoreHandler {
         }, cb);
     }
 
+    /**
+     * Saves a snapshot of the provided event stream
+     * @param {string} streamId The stream id of which this snapshot belongs
+     * @param {number} revisionId The last processed event in computing this aggregate
+     * @param {object} payload Payload of snapshot
+     * @param {function} cb Asynchronous callback
+     */
     saveSnapshot(streamId, revisionId, payload, cb) {
         if (!streamId || typeof streamId !== 'string')
             throw EventStoreError.paramError(`'streamId' must be a string. Found: ${typeof streamId}`);
@@ -144,6 +165,12 @@ class DynamoDBESHandler extends EventStoreHandler {
         }, cb);
     }
 
+    /**
+     * Retrieves the snapshot of the provided event stream
+     * @param {string} streamId The stream id of which the snapshot belongs
+     * @param {function} cb Asynchronous callback
+     * @returns {Snapshot}
+     */
     getSnapshot(streamId, cb) {
         if (!streamId || typeof streamId !== 'string')
             throw EventStoreError.paramError(`'streamId' must be a string. Found: ${typeof streamId}`);

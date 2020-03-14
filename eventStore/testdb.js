@@ -73,6 +73,7 @@ class TestDbESHandler extends EventStoreHandler {
      * Return the stream of events written to the specified event stream
      * @param {string} streamId The stream id
      * @param {function} cb Asynchronous callback
+     * @returns {Event[]}
      */
     getStream(streamId, cb) {
         if (!streamId || typeof streamId !== 'string')
@@ -108,6 +109,7 @@ class TestDbESHandler extends EventStoreHandler {
      * Retrieves the snapshot of the provided event stream
      * @param {string} streamId The stream id of which the snapshot belongs
      * @param {function} cb Asynchronous callback
+     * @returns {Snapshot}
      */
     getSnapshot(streamId, cb) {
         if (!streamId || typeof streamId !== 'string')
