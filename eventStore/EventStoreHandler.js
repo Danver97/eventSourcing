@@ -34,7 +34,7 @@ class EventStoreHandler {
      * @param {object} payload Payload of snapshot
      * @param {function} cb Asynchronous callback
      */
-    saveSnapshot(aggregateId, revisionId, payload, cb) {
+    saveSnapshot(streamId, revisionId, payload, cb) {
         throw new EventStoreError('saveSnapshot() not implemented');
     }
 
@@ -44,7 +44,7 @@ class EventStoreHandler {
      * @param {function} cb Asynchronous callback
      * @returns {Snapshot}
      */
-    getSnapshot(aggregateId, cb) {
+    getSnapshot(streamId, cb) {
         throw new EventStoreError('getSnapshot() not implemented');
     }
 }
