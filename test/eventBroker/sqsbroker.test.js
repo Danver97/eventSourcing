@@ -112,6 +112,63 @@ describe('Sqs Broker test', function () {
             }));
     });
 
+    it('check remove works (~30s)', async function () {
+        this.timeout(36000);
+        this.slow(26000);
+        assert.throws(() => broker.remove(), Error);
+        assert.throws(() => broker.remove('event'), Error);
+        assert.throws(() => broker.remove({}), Error);
+
+        await sqs.sendMessage({
+            QueueUrl,
+            MessageBody: JSON.stringify(publishedEvent),
+        }).promise();
+        await waitAsync(3500);
+
+        let events = await broker.getEvent({ number: 10 });
+        await Promise.all(events.map(e => {
+            console.log(e.streamId)
+            return broker.remove(e);
+        }));
+        // await waitAsync(3000);
+
+        await sqs.sendMessage({
+            QueueUrl,
+            MessageBody: JSON.stringify(createSnsEvent(publishedEvent)),
+        }).promise();
+
+        events = await broker.getEvent({ number: 10 });
+        await Promise.all(events.map(e => {
+            console.log(e.streamId)
+            return broker.remove(e);
+        }));
+        // await waitAsync(3000);
+
+        // Check there are no more events
+        events = await broker.getEvent({ number: 10 });
+        assert.deepStrictEqual(events, []);
+    });
+
+    it('check destroyEvent works (~20s)', async function () {
+        this.timeout(25000);
+        this.slow(21000);
+        assert.throws(() => broker.destroyEvent(), Error);
+        assert.throws(() => broker.destroyEvent('event'), Error);
+        assert.throws(() => broker.destroyEvent({}), Error);
+
+        await sqs.sendMessage({
+            QueueUrl,
+            MessageBody: JSON.stringify(createSnsEvent(publishedEvent)),
+        }).promise();
+
+        let events = await broker.getEvent({ number: 10 });
+        await Promise.all(events.map(e => broker.destroyEvent(e)));
+
+        events = await broker.getEvent({ number: 10 });
+
+        assert.deepStrictEqual(events, []);
+    });
+
     it('check publish works', async function () {
         assert.throws(() => broker.publish(), Error);
         assert.throws(() => broker.publish('event'), Error);
@@ -169,63 +226,6 @@ describe('Sqs Broker test', function () {
         assert.notStrictEqual(actualEvent.messageId, '');
         assert.strictEqual(typeof actualEvent.receiptHandle, 'string');
         assert.notStrictEqual(actualEvent.receiptHandle, '');
-    });
-
-    it('check remove works (~30s)', async function () {
-        this.timeout(36000);
-        this.slow(26000);
-        assert.throws(() => broker.remove(), Error);
-        assert.throws(() => broker.remove('event'), Error);
-        assert.throws(() => broker.remove({}), Error);
-
-        await sqs.sendMessage({
-            QueueUrl,
-            MessageBody: JSON.stringify(publishedEvent),
-        }).promise();
-        await waitAsync(3500);
-
-        let events = await broker.getEvent({ number: 10 });
-        await Promise.all(events.map(e => {
-            console.log(e.streamId)
-            return broker.remove(e);
-        }));
-        // await waitAsync(3000);
-
-        await sqs.sendMessage({
-            QueueUrl,
-            MessageBody: JSON.stringify(createSnsEvent(publishedEvent)),
-        }).promise();
-
-        events = await broker.getEvent({ number: 10 });
-        await Promise.all(events.map(e => {
-            console.log(e.streamId)
-            return broker.remove(e);
-        }));
-        // await waitAsync(3000);
-
-        // Check there are no more events
-        events = await broker.getEvent({ number: 10 });
-        assert.deepStrictEqual(events, []);
-    });
-
-    it('check destroyEvent works (~20s)', async function () {
-        this.timeout(25000);
-        this.slow(21000);
-        assert.throws(() => broker.destroyEvent(), Error);
-        assert.throws(() => broker.destroyEvent('event'), Error);
-        assert.throws(() => broker.destroyEvent({}), Error);
-
-        await sqs.sendMessage({
-            QueueUrl,
-            MessageBody: JSON.stringify(createSnsEvent(publishedEvent)),
-        }).promise();
-
-        let events = await broker.getEvent({ number: 10 });
-        await Promise.all(events.map(e => broker.destroyEvent(e)));
-
-        events = await broker.getEvent({ number: 10 });
-
-        assert.deepStrictEqual(events, []);
     });
 
     it.skip('check subscribe works', async function () {
