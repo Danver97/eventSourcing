@@ -1,3 +1,5 @@
+const SnapshotError = require('./errors/snapshot.error');
+
 class Snapshot {
     /**
      * @constructor
@@ -15,15 +17,15 @@ class Snapshot {
 
     _checkParams(streamId, revisionId, payload) {
         if (!streamId || revisionId === undefined || revisionId === null || !payload) {
-            throw new Error(`Event: missing the following parameters 
+            throw SnapshotError.paramError(`Event: missing the following parameters 
                 ${!streamId ? 'streamId, ' : ''}${(revisionId === undefined || revisionId === null) ? 'eventId, ' : ''}${!payload ? 'payload' : ''}.`);
         }
         if (typeof streamId !== 'string')
-            throw new Error('\'streamId\' must be a string');
+            throw SnapshotError.paramError('\'streamId\' must be a string');
         if (typeof revisionId !== 'number')
-            throw new Error('\'eventId\' must be a number');
+            throw SnapshotError.paramError('\'eventId\' must be a number');
         if (typeof payload !== 'object')
-            throw new Error('\'payload\' must be a object');
+            throw SnapshotError.paramError('\'payload\' must be a object');
     }
 
     /**
@@ -36,7 +38,7 @@ class Snapshot {
      */
     static fromObject(obj) {
         if (!obj)
-            throw new Error('Missing parameter: obj');
+            throw SnapshotError.paramError('Missing parameter: obj');
         const streamId = obj.streamId || obj.StreamId;
         const revisionId = obj.revisionId || obj.RevisionId;
         const payload = obj.payload || obj.Payload;
