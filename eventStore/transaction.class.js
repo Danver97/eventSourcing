@@ -9,7 +9,7 @@ class Transaction {
      */
     constructor(eventStore) {
         if (!(eventStore instanceof EventStoreHandler))
-            throw new Error('\'eventStore\' must be an instance of EventStoreHandler');
+            throw EventStoreError.paramError('\'eventStore\' must be an instance of EventStoreHandler');
         this.eventStore = eventStore;
         this.buffer = [];
     }
@@ -85,6 +85,10 @@ class Transaction {
 
     get size() {
         return this.buffer.length;
+    }
+
+    get maxSize() {
+        return this.eventStore.transactionMaxSize;
     }
 }
 
