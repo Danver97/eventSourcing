@@ -2,6 +2,7 @@ const assert = require('assert');
 const broker = require('../../eventBroker')['testbroker'];
 const testdb = require('../../eventStore')['testdb'];
 const BrokerEvent = require('../../eventBroker/brokerEvent');
+const EventBrokerError = require('../../eventBroker/errors/event_broker.error');
 
 const waitAsync = ms => new Promise(resolve => setTimeout(resolve, ms));
 const waitSync = ms => {
@@ -24,9 +25,9 @@ describe('Event broker unit test', function () {
     });
 
     it('check publish works', async function () {
-        assert.throws(() => broker.publish(), Error);
-        assert.throws(() => broker.publish('event'), Error);
-        assert.throws(() => broker.publish({}), Error);
+        assert.throws(() => broker.publish(), EventBrokerError);
+        assert.throws(() => broker.publish('event'), EventBrokerError);
+        assert.throws(() => broker.publish({}), EventBrokerError);
 
         await broker.publish(publishedEvent);
 
@@ -44,9 +45,9 @@ describe('Event broker unit test', function () {
     });
 
     it('check remove works', async function () {
-        assert.throws(() => broker.remove(), Error);
-        assert.throws(() => broker.remove('event'), Error);
-        assert.throws(() => broker.remove({}), Error);
+        assert.throws(() => broker.remove(), EventBrokerError);
+        assert.throws(() => broker.remove('event'), EventBrokerError);
+        assert.throws(() => broker.remove({}), EventBrokerError);
 
         
         broker.queue = [publishedEvent];
@@ -60,9 +61,9 @@ describe('Event broker unit test', function () {
     });
 
     it('check destroyEvent works', async function () {
-        assert.throws(() => broker.destroyEvent(), Error);
-        assert.throws(() => broker.destroyEvent('event'), Error);
-        assert.throws(() => broker.destroyEvent({}), Error);
+        assert.throws(() => broker.destroyEvent(), EventBrokerError);
+        assert.throws(() => broker.destroyEvent('event'), EventBrokerError);
+        assert.throws(() => broker.destroyEvent({}), EventBrokerError);
 
         
         broker.queue = [publishedEvent];

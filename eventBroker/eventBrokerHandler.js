@@ -1,4 +1,4 @@
-const EventBrokerError = require('./errors/event_broker_error');
+const EventBrokerError = require('./errors/event_broker.error');
 
 class EventBrokerHandler {
     constructor(eventBrokerName) {
@@ -6,23 +6,23 @@ class EventBrokerHandler {
     }
 
     getEvent(options, cb) {
-        throw new EventStoreError('get() not implemented');
+        throw new EventBrokerError('get() not implemented');
     }
 
     hide(e, cb) {
-        throw new EventStoreError('hide() not implemented');
+        throw new EventBrokerError('hide() not implemented');
     }
 
     publish(e, cb) {
-        throw new EventStoreError('publish() not implemented');
+        throw new EventBrokerError('publish() not implemented');
     }
 
     remove(e, cb) {
-        throw new EventStoreError('remove() not implemented');
+        throw new EventBrokerError('remove() not implemented');
     }
 
     subscribe(topic, cb) {
-        throw new EventStoreError('subscribe() not implemented');
+        throw new EventBrokerError('subscribe() not implemented');
     }
 
 

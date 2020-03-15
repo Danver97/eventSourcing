@@ -1,6 +1,7 @@
 const Promisify = require('promisify-cb');
 const BrokerEvent = require('./brokerEvent');
 const EventBrokerHandler = require('./eventBrokerHandler');
+const EventBrokerError = require('./errors/event_broker.error');
 const emitter = require('../lib/bus');
 
 const microserviceName = process.env.MICROSERVICE_NAME;
@@ -10,7 +11,7 @@ const visibilityTimeout = 15000;
 
 function checkIfEvent(e) {
     if (!(e instanceof BrokerEvent))
-        throw new Error('Event Broker: provided object is not an instance of Event');
+        throw EventBrokerError.paramError('Provided object is not an instance of Event');
 }
 
 class TestBrokerHandler extends EventBrokerHandler {
