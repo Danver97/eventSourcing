@@ -6,6 +6,7 @@ const stringHash = require('string-hash');
 const EventStore = require('../../eventStore')['dynamodb'];
 const Event = require('../../event');
 const Snapshot = require('../../eventStore/Snapshot');
+const Transaction = require('../../eventStore/transaction.class');
 const EventStoreError = require('../../eventStore/errors/event_store.error');
 const emitter = require('../../lib/bus');
 const DynamoDataTypes = require('dynamodb-data-types');
@@ -33,17 +34,20 @@ function toJSON(obj) {
 describe('Event store unit test', async function () {
     this.timeout(5000);
     this.slow(1000);
-    let event;
+    let streamId = uuid();
+    let event1 = new Event(streamId, 1, 'event1', { name: 'event1', emptyArray: [], emptyString: '', emptyMap: {} });
+    let event2 = new Event(streamId, 2, 'event2', { name: 'event1', emptyArray: [], emptyString: '', emptyMap: {} });
     let snapshot;
 
     this.beforeEach(() => {
-        const streamId = uuid();
-        event = new Event(streamId, 1, 'event1', { name: 'event1', emptyArray: [], emptyString: '', emptyMap: {} });
+        streamId = uuid();
+        event1 = new Event(streamId, 1, 'event1', { name: 'event1', emptyArray: [], emptyString: '', emptyMap: {} });
+        event2 = new Event(streamId, 2, 'event2', { name: 'event1', emptyArray: [], emptyString: '', emptyMap: {} });
         snapshot = new Snapshot(streamId, 15, { name: 'snapshot1', emptyArray: [], emptyString: '', emptyMap: {} });
     });
 
     this.afterEach(async () => {
-        await ddb.deleteItem({ TableName: eventStreamTable, Key: dynamoAttr.wrap({ StreamId: event.streamId, EventId: event.eventId }) });
+        await ddb.deleteItem({ TableName: eventStreamTable, Key: dynamoAttr.wrap({ StreamId: event1.streamId, EventId: event1.eventId }) });
         await ddb.deleteItem({ TableName: snapshotTable, Key: dynamoAttr.wrap({ StreamId: snapshot.streamId, RevisionId: snapshot.revisionId }) });
     })
 
@@ -58,36 +62,141 @@ describe('Event store unit test', async function () {
             nodeEventPublished = true;
         });
 
-        await es.save(event.streamId, event.eventId - 1, event.message, event.payload);
+        await es.save(event1.streamId, event1.eventId - 1, event1.message, event1.payload);
         const response = await ddb.query({
             TableName: eventStreamTable,
-            ExpressionAttributeValues: dynamoAttr.wrap({ ':streamId': event.streamId, ':first': 0, ':last': Number.MAX_SAFE_INTEGER }),
+            ExpressionAttributeValues: dynamoAttr.wrap({ ':streamId': event1.streamId, ':first': 0, ':last': Number.MAX_SAFE_INTEGER }),
             KeyConditionExpression: 'StreamId = :streamId AND EventId BETWEEN :first AND :last',
         }).promise();
 
         const stream = response.Items.map(i => dynamoAttr.unwrap(i)).map(e => Event.fromObject(e));
 
-        delete event.payload.emptyArray;
-        delete event.payload.emptyString;
-        assert.deepStrictEqual(stream, [event]);
+        delete event1.payload.emptyArray;
+        delete event1.payload.emptyString;
+        assert.deepStrictEqual(stream, [event1]);
         assert.ok(nodeEventPublished);
 
-        await assert.rejects(() => es.save(event.streamId, event.eventId - 1, event.message, event.payload), EventStoreError);
+        await assert.rejects(() => es.save(event1.streamId, event1.eventId - 1, event1.message, event1.payload), EventStoreError);
         try {
-            await es.save(event.streamId, event.eventId - 1, event.message, event.payload);
+            await es.save(event1.streamId, event1.eventId - 1, event1.message, event1.payload);
         } catch (err) {
             assert.strictEqual(err.code, EventStoreError.eventAlreadyExistsErrorCode);
         }
     });
 
+    it('check saveEvent works', async function () {
+        assert.throws(() => es.saveEvent(), EventStoreError);
+        assert.throws(() => es.saveEvent({}), EventStoreError);
+        let nodeEventPublished = false;
+        emitter.on('microservice-test', () => {
+            nodeEventPublished = true;
+        });
+        
+        await es.saveEvent(event1);
+        const response = await ddb.query({
+            TableName: eventStreamTable,
+            ExpressionAttributeValues: dynamoAttr.wrap({ ':streamId': event1.streamId, ':first': 0, ':last': Number.MAX_SAFE_INTEGER }),
+            KeyConditionExpression: 'StreamId = :streamId AND EventId BETWEEN :first AND :last',
+        }).promise();
+
+        const stream = response.Items.map(i => dynamoAttr.unwrap(i)).map(e => Event.fromObject(e));
+
+        delete event1.payload.emptyArray;
+        delete event1.payload.emptyString;
+        assert.deepStrictEqual(stream, [event1]);
+        assert.ok(nodeEventPublished);
+        
+        await assert.rejects(() => es.saveEvent(event1), EventStoreError);
+        try {
+            await es.saveEvent(event1);
+        } catch (err) {
+            assert.strictEqual(err.code, EventStoreError.eventAlreadyExistsErrorCode);
+        }
+    });
+
+    it('check saveEvents works', async function () {
+        assert.throws(() => es.saveEvents(), EventStoreError);
+        assert.throws(() => es.saveEvents({}), EventStoreError);
+        assert.throws(() => es.saveEvents([{}]), EventStoreError);
+        let nodeEventPublished = false;
+        emitter.on('microservice-test', () => {
+            nodeEventPublished = true;
+        });
+        
+        await es.saveEvents([event1, event2]);
+        const response = await ddb.query({
+            TableName: eventStreamTable,
+            ExpressionAttributeValues: dynamoAttr.wrap({ ':streamId': event1.streamId, ':first': 0, ':last': Number.MAX_SAFE_INTEGER }),
+            KeyConditionExpression: 'StreamId = :streamId AND EventId BETWEEN :first AND :last',
+        }).promise();
+
+        const stream = response.Items.map(i => dynamoAttr.unwrap(i)).map(e => Event.fromObject(e));
+
+        delete event1.payload.emptyArray;
+        delete event1.payload.emptyString;
+        delete event2.payload.emptyArray;
+        delete event2.payload.emptyString;
+        assert.deepStrictEqual(stream, [event1, event2]);
+        assert.ok(nodeEventPublished);
+        
+        await assert.rejects(() => es.saveEvents([event1]), EventStoreError);
+        try {
+            await es.saveEvents([event1]);
+        } catch (err) {
+            assert.strictEqual(err.code, EventStoreError.eventAlreadyExistsErrorCode);
+        }
+    });
+
+    it('check startTransaction works', function () {
+        const t = es.startTransaction();
+        assert.ok(t instanceof Transaction);
+        assert.deepStrictEqual(t.eventStore, es);
+    });
+
+    it('check commitTransaction works', async function () {
+        let t = es.startTransaction();
+        /* t.saveEvent(event2);
+        try {
+            await es.commitTransaction(t);
+        } catch (err) {
+            assert.ok(err instanceof EventStoreError);
+            assert.strictEqual(err.code, EventStoreError.transactionFailedErrorCode);
+        } */
+        
+        // Preset
+        await es.saveEvent(event1);
+        /* console.log((await ddb.query({
+            TableName: eventStreamTable,
+            ExpressionAttributeValues: dynamoAttr.wrap({ ':streamId': event1.streamId, ':first': 0, ':last': Number.MAX_SAFE_INTEGER }),
+            KeyConditionExpression: 'StreamId = :streamId AND EventId BETWEEN :first AND :last',
+        }).promise()).Items) */
+
+        // Transaction update
+        t = es.startTransaction();
+        t.saveEvents([event2]);
+        await es.commitTransaction(t);
+        const response = await ddb.query({
+            TableName: eventStreamTable,
+            ExpressionAttributeValues: dynamoAttr.wrap({ ':streamId': event1.streamId, ':first': 0, ':last': Number.MAX_SAFE_INTEGER }),
+            KeyConditionExpression: 'StreamId = :streamId AND EventId BETWEEN :first AND :last',
+        }).promise();
+
+        const stream = response.Items.map(i => dynamoAttr.unwrap(i)).map(e => Event.fromObject(e));
+        delete event1.payload.emptyArray;
+        delete event1.payload.emptyString;
+        delete event2.payload.emptyArray;
+        delete event2.payload.emptyString;
+        assert.deepStrictEqual(stream, [event1, event2]);
+    });
+
     it('check getStream works', async function () {
         assert.throws(() => es.getStream(), EventStoreError);
 
-        delete event.payload.emptyArray;
-        delete event.payload.emptyString;
+        delete event1.payload.emptyArray;
+        delete event1.payload.emptyString;
         await ddb.updateItem({
             TableName: eventStreamTable,
-            Key: dynamoAttr.wrap({ StreamId: event.streamId, EventId: event.eventId /* 1 */ }), // OCCHIO QUIIIII!
+            Key: dynamoAttr.wrap({ StreamId: event1.streamId, EventId: event1.eventId /* 1 */ }), // OCCHIO QUIIIII!
             ExpressionAttributeNames: {
                 '#SID': 'StreamId',
                 '#EID': 'EventId',
@@ -97,12 +206,12 @@ describe('Event store unit test', async function () {
                 '#RSSK': 'RSSortKey',
             },
             ExpressionAttributeValues: dynamoAttr.wrap({
-                ':sid': event.streamId,
-                ':eid': event.eventId, /* 1 */ // OCCHIO QUIIIII!
-                ':message': event.message,
-                ':payload': event.payload,
-                ':rsid': stringHash(event.streamId) % 5,
-                ':rssortkey': `${event.streamId}:${event.eventId}`,
+                ':sid': event1.streamId,
+                ':eid': event1.eventId, /* 1 */ // OCCHIO QUIIIII!
+                ':message': event1.message,
+                ':payload': event1.payload,
+                ':rsid': stringHash(event1.streamId) % 5,
+                ':rssortkey': `${event1.streamId}:${event1.eventId}`,
             }),
             UpdateExpression: 'SET #MSG = :message, #PL = :payload, #RSID = :rsid, #RSSK = :rssortkey',
             ConditionExpression: '#SID <> :sid AND #EID <> :eid', // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
@@ -111,9 +220,9 @@ describe('Event store unit test', async function () {
             ReturnConsumedCapacity: 'INDEXES',
         }).promise();
 
-        const stream = await es.getStream(event.streamId);
+        const stream = await es.getStream(event1.streamId);
 
-        assert.deepStrictEqual(stream, [event]);
+        assert.deepStrictEqual(stream, [event1]);
         stream.forEach(e => {
             assert.ok(e instanceof Event);
         });

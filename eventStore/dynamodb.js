@@ -73,7 +73,7 @@ class DynamoDBESHandler extends EventStoreHandler {
         eId++;
         delete payload._revisionId;
         const event = new Event(streamId, eId, message, toJSON(payload));
-        return saveEvent(event, cb);
+        return this.saveEvent(event, cb);
     }
 
     /**
@@ -92,6 +92,11 @@ class DynamoDBESHandler extends EventStoreHandler {
                 ':rsid': stringHash(event.streamId) % replayStreamsNumber,
                 ':rssortkey': `${event.streamId}:${event.eventId}`,
             });
+            let ConditionExpression = '#SID <> :sid AND #EID <> :eid'; // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
+            /* if (event.eventId > 1) {
+                attrValues[':revid'] = dynamoAttr.wrap1(event.eventId - 1);
+                ConditionExpression += ' AND #EID = :revid';
+            } */
             removeEmptySetsOrStrings(attrValues);
             const params = {
                 TableName: this.tableName,
@@ -106,7 +111,7 @@ class DynamoDBESHandler extends EventStoreHandler {
                 },
                 ExpressionAttributeValues: attrValues,
                 UpdateExpression: 'SET #MSG = :message, #PL = :payload, #RSID = :rsid, #RSSK = :rssortkey',
-                ConditionExpression: '#SID <> :sid AND #EID <> :eid', // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
+                ConditionExpression,
                 ReturnValues: 'ALL_NEW',
                 ReturnItemCollectionMetrics: 'SIZE',
                 ReturnConsumedCapacity: 'INDEXES',
@@ -135,7 +140,7 @@ class DynamoDBESHandler extends EventStoreHandler {
             await Promise.all(events.map(e => this.saveEvent(e)));
         }, cb);
     }
-    
+
     /**
      * Starts a new transaction returning a new transaction handler
      * @returns {Transaction} The transaction handler
@@ -164,6 +169,12 @@ class DynamoDBESHandler extends EventStoreHandler {
                     ':rsid': stringHash(e.streamId) % replayStreamsNumber,
                     ':rssortkey': `${e.streamId}:${e.eventId}`,
                 });
+                let ConditionExpression = '#SID <> :sid AND #EID <> :eid'; // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
+                /* if (e.eventId > 1) {
+                    attrValues[':revid'] = dynamoAttr.wrap1(e.eventId - 1);
+                    ConditionExpression += ' OR (#SID = :sid AND #EID = :revid)'; // ' AND #EID = :revid'
+                } */
+                removeEmptySetsOrStrings(attrValues);
                 return {
                     Update: {
                         TableName: this.tableName,
@@ -178,11 +189,19 @@ class DynamoDBESHandler extends EventStoreHandler {
                         },
                         ExpressionAttributeValues: attrValues,
                         UpdateExpression: 'SET #MSG = :message, #PL = :payload, #RSID = :rsid, #RSSK = :rssortkey',
-                        ConditionExpression: '#SID <> :sid AND #EID <> :eid', // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
+                        ConditionExpression,
                     }
                 };
             });
-            await dynamoDb.transactWriteItems({ TransactItems: transactItems });
+            try {
+                await dynamoDb.transactWriteItems({ TransactItems: transactItems }).promise();
+            } catch (err) {
+                console.log(err.message)
+                if (err.code === 'TransactionCanceledException' && /ConditionalCheckFailed/.test(err.message)) {
+                    throw EventStoreError.transactionFailedError('Some stream ids are out of sync');
+                }
+                throw err;
+            }
         }, cb);
     }
 
