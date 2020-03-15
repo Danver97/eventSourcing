@@ -2,6 +2,7 @@ const AWSinit = require('@danver97/aws-config')();
 const Promisify = require('promisify-cb');
 const attr = require('dynamodb-data-types').AttributeValue;
 const EventBrokerHandler = require('../eventBrokerHandler');
+const EventBrokerError = require('../errors/event_broker.error');
 const Event = require('../../event');
 const SqsEvent = require('./sqsEvent');
 
@@ -13,12 +14,12 @@ const microserviceName = process.env.MICROSERVICE_NAME;
 
 function checkIfEvent(e) {
     if (!(e instanceof Event))
-        throw new Error('Event Broker: provided object is not an instance of Event');
+        throw EventBrokerError.paramError('Provided object is not an instance of Event');
 }
 
 function checkIfSqsEvent(e) {
     if (!(e instanceof SqsEvent))
-        throw new Error('Event Broker: provided object is not an instance of SqsEvent');
+        throw EventBrokerError.paramError('Provided object is not an instance of SqsEvent');
 }
 
 function queueName(name) {

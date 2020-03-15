@@ -6,6 +6,7 @@ const SQS = require('aws-sdk/clients/sqs');
 const SqsBroker = require('../../eventBroker/sqs').EbHandler;
 const SqsEvent = require('../../eventBroker/sqs/sqsEvent');
 const BrokerEvent = require('../../eventBroker/brokerEvent');
+const EventBrokerError = require('../../eventBroker/errors/event_broker.error');
 
 const AssertionError = assert.AssertionError;
 const sqsConfig = AWSinit.sqs;
@@ -115,9 +116,9 @@ describe('Sqs Broker test', function () {
     it('check remove works (~30s)', async function () {
         this.timeout(36000);
         this.slow(26000);
-        assert.throws(() => broker.remove(), Error);
-        assert.throws(() => broker.remove('event'), Error);
-        assert.throws(() => broker.remove({}), Error);
+        assert.throws(() => broker.remove(), EventBrokerError);
+        assert.throws(() => broker.remove('event'), EventBrokerError);
+        assert.throws(() => broker.remove({}), EventBrokerError);
 
         await sqs.sendMessage({
             QueueUrl,
@@ -152,9 +153,9 @@ describe('Sqs Broker test', function () {
     it('check destroyEvent works (~20s)', async function () {
         this.timeout(25000);
         this.slow(21000);
-        assert.throws(() => broker.destroyEvent(), Error);
-        assert.throws(() => broker.destroyEvent('event'), Error);
-        assert.throws(() => broker.destroyEvent({}), Error);
+        assert.throws(() => broker.destroyEvent(), EventBrokerError);
+        assert.throws(() => broker.destroyEvent('event'), EventBrokerError);
+        assert.throws(() => broker.destroyEvent({}), EventBrokerError);
 
         await sqs.sendMessage({
             QueueUrl,
@@ -170,9 +171,9 @@ describe('Sqs Broker test', function () {
     });
 
     it('check publish works', async function () {
-        assert.throws(() => broker.publish(), Error);
-        assert.throws(() => broker.publish('event'), Error);
-        assert.throws(() => broker.publish({}), Error);
+        assert.throws(() => broker.publish(), EventBrokerError);
+        assert.throws(() => broker.publish('event'), EventBrokerError);
+        assert.throws(() => broker.publish({}), EventBrokerError);
 
         await broker.publish(publishedEvent);
 
