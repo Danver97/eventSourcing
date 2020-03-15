@@ -3,9 +3,10 @@ const DynamoDataTypes = require('dynamodb-data-types');
 const Promisify = require('promisify-cb');
 const stringHash = require("string-hash");
 const Event = require('../event');
-const EventStoreHandler = require('./EventStoreHandler');
-const EventStoreError = require('./errors/event_store.error');
 const Snapshot = require('./Snapshot');
+const EventStoreHandler = require('./EventStoreHandler');
+const Transaction = require('./transaction.class');
+const EventStoreError = require('./errors/event_store.error');
 const emitter = require('../lib/bus');
 
 const dynamoAttr = DynamoDataTypes.AttributeValue;
@@ -26,6 +27,10 @@ function getSnapshotTableName(microserviceName) {
     return `${microserviceName}SnapshotTable`;
 }
 
+function toJSON(obj) {
+    return JSON.parse(JSON.stringify(obj));
+}
+
 function removeEmptySetsOrStrings(attrValues) {
     Object.keys(attrValues).forEach(k => {
         if (typeof attrValues[k] !== 'object')
@@ -38,6 +43,8 @@ function removeEmptySetsOrStrings(attrValues) {
             removeEmptySetsOrStrings(attrValues[k].M);
     });
 }
+
+const replayStreamsNumber = 5;
 
 class DynamoDBESHandler extends EventStoreHandler {
     constructor(eventStoreName) {
@@ -55,31 +62,34 @@ class DynamoDBESHandler extends EventStoreHandler {
      * @param {function} cb Asynchronous callback
      */
     save(streamId, revisionId, message, payload, cb) {
-        if (!streamId || typeof streamId !== 'string')
-            throw EventStoreError.paramError(`'streamId' must be a string. Found: ${typeof streamId}`);
-        if ((!revisionId && revisionId !== 0) || typeof revisionId !== 'number')
-            throw EventStoreError.paramError(`'revisionId' must be a number. Found: ${typeof revisionId}`);
-        if (!message || typeof message !== 'string')
-            throw EventStoreError.paramError(`'message' must be a number. Found: ${typeof message}`);
-        if (!payload)
-            throw EventStoreError.paramError(`Missing 'payload' parameter`);
+        this._checkSaveParams(streamId, revisionId, message, payload);
+        let eId = revisionId || payload._revisionId || 0;
+        eId++;
+        delete payload._revisionId;
+        const event = new Event(streamId, eId, message, toJSON(payload));
+        return saveEvent(event, cb);
+    }
+
+    /**
+     * Saves an event into the event store
+     * @param {Event} event The event to be saved
+     * @param {function} cb Asynchronous callback
+     */
+    saveEvent(event, cb) {
+        this._checkEvent(event);
         return Promisify(async () => {
-            let eId = revisionId || payload._revisionId || 0;
-            eId++;
-            delete payload._revisionId;
-            const event = new Event(streamId, eId, message, Object.assign({}, payload));
             const attrValues = dynamoAttr.wrap({
-                ':sid': streamId,
-                ':eid': eId, /* 1 */ // OCCHIO QUIIIII!
-                ':message': message,
-                ':payload': payload,
-                ':rsid': stringHash(streamId) % 5,
-                ':rssortkey': `${streamId}:${eId}`,
+                ':sid': event.streamId,
+                ':eid': event.eventId, /* 1 */ // OCCHIO QUIIIII!
+                ':message': event.message,
+                ':payload': event.payload,
+                ':rsid': stringHash(event.streamId) % replayStreamsNumber,
+                ':rssortkey': `${event.streamId}:${event.eventId}`,
             });
             removeEmptySetsOrStrings(attrValues);
             const params = {
                 TableName: this.tableName,
-                Key: dynamoAttr.wrap({ StreamId: streamId, EventId: eId /* 1 */ }), // OCCHIO QUIIIII!
+                Key: dynamoAttr.wrap({ StreamId: event.streamId, EventId: event.eventId /* 1 */ }), // OCCHIO QUIIIII!
                 ExpressionAttributeNames: {
                     '#SID': 'StreamId',
                     '#EID': 'EventId',
@@ -106,6 +116,64 @@ class DynamoDBESHandler extends EventStoreHandler {
             emit('microservice-test', event);
             return event;
         }, cb);
+    }
+
+    /**
+     * Saves multiple events into the event store, in a non-transactional way.
+     * @param {Event[]} events The event to be saved
+     * @param {function} cb Asynchronous callback
+     */
+    saveEvents(events, cb) {
+        this._checkArrayOfEvents(events);
+        return Promisify(async () => {
+            await Promise.all(events.map(e => this.saveEvent(e)));
+        }, cb);
+    }
+    
+    /**
+     * 
+     * @param {Transaction} transaction The transaction to commit
+     * @param {function} cb Asynchronous callback
+     */
+    commitTransaction(transaction, cb) {
+        if (!(transaction instanceof Transaction))
+            throw EventStoreError.paramError('\'transaction\' parameter must be an instance of Transaction class');
+        if (transaction.size > this.transactionMaxSize)
+            throw EventStoreError.transactionSizeExcededError(`'transaction' is too big. A maximum of ${this.transactionMaxSize} events per transaction are allowed.`);
+        return Promisify(async () => {
+            const transactItems = transaction.buffer.map(e => {
+                const attrValues = dynamoAttr.wrap({
+                    ':sid': e.streamId,
+                    ':eid': e.eventId, /* 1 */ // OCCHIO QUIIIII!
+                    ':message': e.message,
+                    ':payload': e.payload,
+                    ':rsid': stringHash(e.streamId) % replayStreamsNumber,
+                    ':rssortkey': `${e.streamId}:${e.eventId}`,
+                });
+                return {
+                    Update: {
+                        TableName: this.tableName,
+                        Key: dynamoAttr.wrap({ StreamId: e.streamId, EventId: e.eventId /* 1 */ }), // OCCHIO QUIIIII!
+                        ExpressionAttributeNames: {
+                            '#SID': 'StreamId',
+                            '#EID': 'EventId',
+                            '#MSG': 'Message',
+                            '#PL': 'Payload',
+                            '#RSID': 'ReplayStreamId',
+                            '#RSSK': 'RSSortKey',
+                        },
+                        ExpressionAttributeValues: attrValues,
+                        UpdateExpression: 'SET #MSG = :message, #PL = :payload, #RSID = :rsid, #RSSK = :rssortkey',
+                        ConditionExpression: '#SID <> :sid AND #EID <> :eid', // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
+                    }
+                };
+            });
+            await dynamoDb.transactWriteItems({ TransactItems: transactItems });
+        }, cb);
+    }
+
+    get transactionMaxSize() {
+        return 25;
     }
 
     /**
