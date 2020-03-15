@@ -3,7 +3,7 @@ const uuid = require('uuid').v4;
 const assert = require('assert');
 const AWS = require('aws-sdk');
 const stringHash = require('string-hash');
-const es = require('../../eventStore')['dynamodb'];
+const EventStore = require('../../eventStore')['dynamodb'];
 const Event = require('../../event');
 const Snapshot = require('../../eventStore/Snapshot');
 const EventStoreError = require('../../eventStore/errors/event_store.error');
@@ -23,6 +23,8 @@ const ddb = new AWS.DynamoDB({ apiVersion: '2012-08-10' });
 
 const eventStreamTable = `${process.env.MICROSERVICE_NAME}EventStreamTable`;
 const snapshotTable = `${process.env.MICROSERVICE_NAME}SnapshotTable`;
+
+const es = new EventStore();
 
 function toJSON(obj) {
     return JSON.parse(JSON.stringify(obj));

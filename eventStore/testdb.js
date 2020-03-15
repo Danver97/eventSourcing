@@ -8,10 +8,6 @@ const EventStoreError = require('./errors/event_store.error');
 const emitter = require('../lib/bus');
 
 let microserviceName = process.env.MICROSERVICE_NAME;
-const defaultEventStore = {
-    eventStore: {},
-    snapshots: {},
-};
 
 function emit(message, payload) {
     emitter.emit(message, payload);
@@ -26,8 +22,13 @@ function toJSON(obj) {
 }
 
 class TestDbESHandler extends EventStoreHandler {
-    constructor(eventStoreName) {
-        super(eventStoreName);
+    /**
+     * @constructor
+     * @param {object} options
+     * @param {string} options.eventStoreName The name of the event store db
+     */
+    constructor(options = { eventStoreName: microserviceName }) {
+        super(options);
         this.eventStore = {};
         this.snapshots = {};
     }
@@ -188,7 +189,8 @@ class TestDbESHandler extends EventStoreHandler {
     }
 }
 
-const defaultHandler = new TestDbESHandler(microserviceName);
+/* const defaultHandler = new TestDbESHandler({ eventStoreName: microserviceName });
 defaultHandler.EsHandler = TestDbESHandler;
 
-module.exports = defaultHandler;
+module.exports = defaultHandler; */
+module.exports = TestDbESHandler;

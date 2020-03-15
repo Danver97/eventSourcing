@@ -3,8 +3,19 @@ const EventStoreError = require('./errors/event_store.error');
 const Transaction = require('./transaction.class');
 
 class EventStoreHandler {
-    constructor(eventStoreName) {
-        this.eventStoreName = eventStoreName;
+    /**
+     * @constructor
+     * @param {object} options
+     * @param {string} options.eventStoreName The name of the event store db
+     */
+    constructor(options = {}) {
+        this._checkOptions(options);
+        this.eventStoreName = options.eventStoreName;
+    }
+
+    _checkOptions(options) {
+        if (!options.eventStoreName || typeof options.eventStoreName !== 'string')
+            throw EventStoreError.paramError(`'options.eventStoreName' is expected to be a string. Found: ${typeof options.eventStoreName}`);
     }
 
     _checkSaveParams(streamId, revisionId, message, payload) {

@@ -13,7 +13,6 @@ const dynamoAttr = DynamoDataTypes.AttributeValue;
 
 let dynamoDb = ddbConfig.ddb;
 let microserviceName = process.env.MICROSERVICE_NAME;
-const snapshotTag = 'Snapshot';
 
 function emit(message, payload) {
     emitter.emit(message, payload);
@@ -47,10 +46,17 @@ function removeEmptySetsOrStrings(attrValues) {
 const replayStreamsNumber = 5;
 
 class DynamoDBESHandler extends EventStoreHandler {
-    constructor(eventStoreName) {
-        super(eventStoreName);
-        this.tableName = getTableName(this.eventStoreName);
-        this.snapshotsTableName = getSnapshotTableName(this.eventStoreName);
+    /**
+     * @constructor
+     * @param {object} options
+     * @param {string} options.eventStoreName The name of the event store db
+     * @param {string} [options.tableName] The name of the event stream table
+     * @param {string} [options.snapshotsTableName] The name of the snapshot table
+     */
+    constructor(options = { eventStoreName: microserviceName }) {
+        super(options);
+        this.tableName = options.tableName || getTableName(this.eventStoreName);
+        this.snapshotsTableName = options.snapshotsTableName || getSnapshotTableName(this.eventStoreName);
     }
 
     /**
@@ -256,7 +262,8 @@ class DynamoDBESHandler extends EventStoreHandler {
     }
 }
 
-const defaultHandler = new DynamoDBESHandler(microserviceName);
+/* const defaultHandler = new DynamoDBESHandler({ eventStoreName: microserviceName });
 defaultHandler.EsHandler = DynamoDBESHandler;
 
-module.exports = defaultHandler;
+module.exports = defaultHandler; */
+module.exports = DynamoDBESHandler;
