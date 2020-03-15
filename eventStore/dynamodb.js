@@ -137,6 +137,14 @@ class DynamoDBESHandler extends EventStoreHandler {
     }
     
     /**
+     * Starts a new transaction returning a new transaction handler
+     * @returns {Transaction} The transaction handler
+     */
+    startTransaction() {
+        return new Transaction(this);
+    }
+
+    /**
      * 
      * @param {Transaction} transaction The transaction to commit
      * @param {function} cb Asynchronous callback

@@ -17,6 +17,10 @@ const errorCodes = {
         name: 'transactionSizeExcededError',
         code: 'transactionSizeExcededError',
     },
+    transactionFailedError: {
+        name: 'transactionFailedError',
+        code: 'transactionFailedError',
+    },
 }
 
 class EventStoreError extends ExtendableError {
@@ -37,6 +41,10 @@ class EventStoreError extends ExtendableError {
         return new EventStoreError(msg, EventStoreError.transactionSizeExcededErrorCode);
     }
 
+    static transactionFailedError(msg) {
+        return new EventStoreError(msg, EventStoreError.transactionFailedErrorCode);
+    }
+
     static get paramErrorCode() {
         return errorCodes.paramError.code;
     }
@@ -49,8 +57,16 @@ class EventStoreError extends ExtendableError {
         return errorCodes.eventAlreadyExistsError.code;
     }
 
-    static get eventAlreadyExistsErrorCode() {
+    static get transactionSizeExcededErrorCode() {
         return errorCodes.transactionSizeExcededError.code;
+    }
+
+    static get transactionFailedErrorCode() {
+        return errorCodes.transactionFailedError.code;
+    }
+
+    static get errors() {
+        return errorCodes;
     }
 }
 

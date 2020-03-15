@@ -109,6 +109,14 @@ class TestDbESHandler extends EventStoreHandler {
             return events;
         }, cb);
     }
+
+    /**
+     * Starts a new transaction returning a new transaction handler
+     * @returns {Transaction} The transaction handler
+     */
+    startTransaction() {
+        return new Transaction(this);
+    }
     
     /**
      * 
@@ -118,8 +126,17 @@ class TestDbESHandler extends EventStoreHandler {
     commitTransaction(transaction, cb) {
         if (!(transaction instanceof Transaction))
             throw EventStoreError.paramError('\'transaction\' parameter must be an instance of Transaction class');
-        return Promisify(() => {
-            throw new EventStoreError('commitTransaction() not implemented');
+        return Promisify(async () => {
+            const streamRevisions = {};
+            transaction.buffer.forEach(e => {
+                if (!streamRevisions[e.streamId])
+                    streamRevisions[e.streamId] = this.eventStore[e.streamId] || 0;
+                if (streamRevisions[e.streamId] + 1 !== e.eventId)
+                    throw EventStoreError.transactionFailedError(`Stream revision not syncronized:
+                    stream ${e.streamId} has revision ${streamRevisions[e.streamId]} and current event has eventId ${e.eventId}`);
+                streamRevisions[e.streamId]++;
+            });
+            await this.saveEvents(transaction.buffer);
         }, cb);
     }
 

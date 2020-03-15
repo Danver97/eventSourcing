@@ -1,6 +1,6 @@
 const Event = require('../event');
 const EventStoreError = require('./errors/event_store.error');
-const Transaction = require('./transaction.class');
+// const Transaction = require('./transaction.class');
 
 class EventStoreHandler {
     /**
@@ -83,7 +83,8 @@ class EventStoreHandler {
      * @returns {Transaction} The transaction handler
      */
     startTransaction() {
-        return new Transaction(this);
+        throw new EventStoreError('commitTransaction() not implemented');
+        // return new Transaction(this); // Can't do this due to the loop of require() between this module and the transaction module
     }
 
     /**
