@@ -31,18 +31,20 @@ function toJSON(obj) {
     return JSON.parse(JSON.stringify(obj));
 }
 
-describe('Event store unit test', async function () {
+describe('DDB Event store unit test', async function () {
     this.timeout(5000);
     this.slow(1000);
     let streamId = uuid();
     let event1 = new Event(streamId, 1, 'event1', { name: 'event1', emptyArray: [], emptyString: '', emptyMap: {} });
     let event2 = new Event(streamId, 2, 'event2', { name: 'event1', emptyArray: [], emptyString: '', emptyMap: {} });
+    let event3 = new Event(streamId, 3, 'event3', { name: 'event3' });
     let snapshot;
 
     this.beforeEach(() => {
         streamId = uuid();
         event1 = new Event(streamId, 1, 'event1', { name: 'event1', emptyArray: [], emptyString: '', emptyMap: {} });
         event2 = new Event(streamId, 2, 'event2', { name: 'event1', emptyArray: [], emptyString: '', emptyMap: {} });
+        event3 = new Event(streamId, 3, 'event3', { name: 'event3' });
         snapshot = new Snapshot(streamId, 15, { name: 'snapshot1', emptyArray: [], emptyString: '', emptyMap: {} });
     });
 
@@ -80,7 +82,7 @@ describe('Event store unit test', async function () {
         try {
             await es.save(event1.streamId, event1.eventId - 1, event1.message, event1.payload);
         } catch (err) {
-            assert.strictEqual(err.code, EventStoreError.eventAlreadyExistsErrorCode);
+            assert.strictEqual(err.code, EventStoreError.streamRevisionNotSyncErrorCode);
         }
     });
 
@@ -110,7 +112,7 @@ describe('Event store unit test', async function () {
         try {
             await es.saveEvent(event1);
         } catch (err) {
-            assert.strictEqual(err.code, EventStoreError.eventAlreadyExistsErrorCode);
+            assert.strictEqual(err.code, EventStoreError.streamRevisionNotSyncErrorCode);
         }
     });
 
@@ -143,7 +145,7 @@ describe('Event store unit test', async function () {
         try {
             await es.saveEvents([event1]);
         } catch (err) {
-            assert.strictEqual(err.code, EventStoreError.eventAlreadyExistsErrorCode);
+            assert.strictEqual(err.code, EventStoreError.streamRevisionNotSyncErrorCode);
         }
     });
 
@@ -153,27 +155,38 @@ describe('Event store unit test', async function () {
         assert.deepStrictEqual(t.eventStore, es);
     });
 
-    it('check commitTransaction works', async function () {
-        let t = es.startTransaction();
-        /* t.saveEvent(event2);
+    it('check saveEventsTransactionally works', async function () {
         try {
-            await es.commitTransaction(t);
+            await es.saveEventsTransactionally([event1, event3]);
         } catch (err) {
             assert.ok(err instanceof EventStoreError);
             assert.strictEqual(err.code, EventStoreError.transactionFailedErrorCode);
-        } */
-        
-        // Preset
-        await es.saveEvent(event1);
-        /* console.log((await ddb.query({
+        }
+        try {
+            await es.saveEventsTransactionally([event2, event1]);
+        } catch (err) {
+            assert.ok(err instanceof EventStoreError);
+            assert.strictEqual(err.code, EventStoreError.transactionFailedErrorCode);
+        }
+
+        await es.saveEventsTransactionally([event1, event2]);
+        const response = await ddb.query({
             TableName: eventStreamTable,
             ExpressionAttributeValues: dynamoAttr.wrap({ ':streamId': event1.streamId, ':first': 0, ':last': Number.MAX_SAFE_INTEGER }),
             KeyConditionExpression: 'StreamId = :streamId AND EventId BETWEEN :first AND :last',
-        }).promise()).Items) */
+        }).promise();
 
-        // Transaction update
-        t = es.startTransaction();
-        t.saveEvents([event2]);
+        const stream = response.Items.map(i => dynamoAttr.unwrap(i)).map(e => Event.fromObject(e));
+        delete event1.payload.emptyArray;
+        delete event1.payload.emptyString;
+        delete event2.payload.emptyArray;
+        delete event2.payload.emptyString;
+        assert.deepStrictEqual(stream, [event1, event2]);
+    });
+
+    it('check commitTransaction works', async function () {
+        let t = es.startTransaction();
+        t.saveEvents([event1, event2]);
         await es.commitTransaction(t);
         const response = await ddb.query({
             TableName: eventStreamTable,

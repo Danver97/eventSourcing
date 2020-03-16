@@ -1,6 +1,6 @@
 const Event = require('../event');
 const EventStoreError = require('./errors/event_store.error');
-// const Transaction = require('./transaction.class');
+// const Transaction = require('./transaction.class'); // Can't do it. It causes a loop of require() between this module and the transaction module
 
 class EventStoreHandler {
     /**
@@ -85,6 +85,39 @@ class EventStoreHandler {
     startTransaction() {
         throw new EventStoreError('commitTransaction() not implemented');
         // return new Transaction(this); // Can't do this due to the loop of require() between this module and the transaction module
+    }
+
+    /**
+     * 
+     * @param {Event[]} events 
+     * @returns {Event[]|object}
+     */
+    _inTransactionConditionalChecks(events) {
+        const eventsMap = {};
+        events.forEach(e => {
+            if (!eventsMap[e.streamId])
+                eventsMap[e.streamId] = [];
+            eventsMap[e.streamId].push(e);
+        });
+        Object.keys(eventsMap).forEach(k => {
+            // eventsMap[k].sort((a, b) => a.eventId <= b.eventId ? -1 : 1);
+            for (let i = 1; i < eventsMap[k].length; i++) {
+                const prevEvent = eventsMap[k][i-1];
+                const currEvent = eventsMap[k][i];
+                if (prevEvent.eventId !== currEvent.eventId - 1)
+                    throw EventStoreError.transactionFailedError(`Some events belonging to stream ${k} are not consecutive events`);
+            }
+        });
+        return Object.values(eventsMap).flat();
+    }
+
+    /**
+     * Saves multiple events into the event store, in a transactional way.
+     * @param {Event[]} events The event to be saved
+     * @param {function} cb Asynchronous callback
+     */
+    saveEventsTransactionally(events, cb) {
+        throw new EventStoreError('saveEventsTransactionally() not implemented');
     }
 
     /**

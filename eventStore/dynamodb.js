@@ -93,10 +93,6 @@ class DynamoDBESHandler extends EventStoreHandler {
                 ':rssortkey': `${event.streamId}:${event.eventId}`,
             });
             let ConditionExpression = '#SID <> :sid AND #EID <> :eid'; // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
-            /* if (event.eventId > 1) {
-                attrValues[':revid'] = dynamoAttr.wrap1(event.eventId - 1);
-                ConditionExpression += ' AND #EID = :revid';
-            } */
             removeEmptySetsOrStrings(attrValues);
             const params = {
                 TableName: this.tableName,
@@ -121,7 +117,7 @@ class DynamoDBESHandler extends EventStoreHandler {
                 await dynamoDb.updateItem(params).promise();
             } catch (err) {
                 if (err.code === 'ConditionalCheckFailedException')
-                    throw EventStoreError.eventAlreadyExistsError('Stream revision not syncronized.');
+                    throw EventStoreError.streamRevisionNotSyncError('Stream revision not syncronized.');
                 throw err;
             }
             emit('microservice-test', event);
@@ -150,17 +146,13 @@ class DynamoDBESHandler extends EventStoreHandler {
     }
 
     /**
-     * 
-     * @param {Transaction} transaction The transaction to commit
+     * Saves multiple events into the event store, in a transactional way.
+     * @param {Event[]} events The event to be saved
      * @param {function} cb Asynchronous callback
      */
-    commitTransaction(transaction, cb) {
-        if (!(transaction instanceof Transaction))
-            throw EventStoreError.paramError('\'transaction\' parameter must be an instance of Transaction class');
-        if (transaction.size > this.transactionMaxSize)
-            throw EventStoreError.transactionSizeExcededError(`'transaction' is too big. A maximum of ${this.transactionMaxSize} events per transaction are allowed.`);
+    saveEventsTransactionally(events, cb) {
         return Promisify(async () => {
-            const transactItems = transaction.buffer.map(e => {
+            const transactItems = this._inTransactionConditionalChecks(events).map(e => {
                 const attrValues = dynamoAttr.wrap({
                     ':sid': e.streamId,
                     ':eid': e.eventId, /* 1 */ // OCCHIO QUIIIII!
@@ -170,10 +162,6 @@ class DynamoDBESHandler extends EventStoreHandler {
                     ':rssortkey': `${e.streamId}:${e.eventId}`,
                 });
                 let ConditionExpression = '#SID <> :sid AND #EID <> :eid'; // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
-                /* if (e.eventId > 1) {
-                    attrValues[':revid'] = dynamoAttr.wrap1(e.eventId - 1);
-                    ConditionExpression += ' OR (#SID = :sid AND #EID = :revid)'; // ' AND #EID = :revid'
-                } */
                 removeEmptySetsOrStrings(attrValues);
                 return {
                     Update: {
@@ -196,13 +184,25 @@ class DynamoDBESHandler extends EventStoreHandler {
             try {
                 await dynamoDb.transactWriteItems({ TransactItems: transactItems }).promise();
             } catch (err) {
-                console.log(err.message)
                 if (err.code === 'TransactionCanceledException' && /ConditionalCheckFailed/.test(err.message)) {
                     throw EventStoreError.transactionFailedError('Some stream ids are out of sync');
                 }
                 throw err;
             }
         }, cb);
+    }
+
+    /**
+     * 
+     * @param {Transaction} transaction The transaction to commit
+     * @param {function} cb Asynchronous callback
+     */
+    commitTransaction(transaction, cb) {
+        if (!(transaction instanceof Transaction))
+            throw EventStoreError.paramError('\'transaction\' parameter must be an instance of Transaction class');
+        if (transaction.size > this.transactionMaxSize)
+            throw EventStoreError.transactionSizeExcededError(`'transaction' is too big. A maximum of ${this.transactionMaxSize} events per transaction are allowed.`);
+        return this.saveEventsTransactionally(transaction.buffer, cb);
     }
 
     get transactionMaxSize() {

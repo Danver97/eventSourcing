@@ -48,26 +48,6 @@ class TestDbESHandler extends EventStoreHandler {
         delete payload._revisionId;
         const event = new Event(streamId, eId, message, toJSON(payload));
         return this.saveEvent(event, cb);
-        
-        /* return Promisify(() => {
-            let eId = revisionId || payload._revisionId || 0;
-            eId++;
-            delete payload._revisionId;
-            if (!streamId)
-                streamId = uuidv1();
-            if (!this.eventStore[streamId])
-                this.eventStore[streamId] = { streamId, revision: 0, events: [] };
-            const revision = this.eventStore[streamId].revision;
-
-            const event = new Event(streamId, eId, message, toJSON(payload));
-            if (revision + 1 === eId) {
-                this.eventStore[streamId].events.push(event);
-                this.eventStore[streamId].revision++;
-            } else
-                throw EventStoreError.eventAlreadyExistsError('Stream revision not syncronized.');
-            emit('microservice-test', event);
-            return event;
-        }, cb); */
     }
 
     _saveEvent(event) {
@@ -79,7 +59,7 @@ class TestDbESHandler extends EventStoreHandler {
             this.eventStore[event.streamId].events.push(event);
             this.eventStore[event.streamId].revision++;
         } else
-            throw EventStoreError.eventAlreadyExistsError('Stream revision not syncronized.');
+            throw EventStoreError.streamRevisionNotSyncError('Stream revision not syncronized.');
         emit('microservice-test', event);
         return event;
     }
@@ -117,6 +97,18 @@ class TestDbESHandler extends EventStoreHandler {
     startTransaction() {
         return new Transaction(this);
     }
+
+    /**
+     * Saves multiple events into the event store, in a transactional way.
+     * @param {Event[]} events The event to be saved
+     * @param {function} cb Asynchronous callback
+     */
+    saveEventsTransactionally(events, cb) {
+        return Promisify(async () => {
+            const sortEvents = this._inTransactionConditionalChecks(events);
+            await this.saveEvents(sortEvents);
+        }, cb);
+    }
     
     /**
      * 
@@ -126,18 +118,7 @@ class TestDbESHandler extends EventStoreHandler {
     commitTransaction(transaction, cb) {
         if (!(transaction instanceof Transaction))
             throw EventStoreError.paramError('\'transaction\' parameter must be an instance of Transaction class');
-        return Promisify(async () => {
-            const streamRevisions = {};
-            transaction.buffer.forEach(e => {
-                if (!streamRevisions[e.streamId])
-                    streamRevisions[e.streamId] = this.eventStore[e.streamId] || 0;
-                if (streamRevisions[e.streamId] + 1 !== e.eventId)
-                    throw EventStoreError.transactionFailedError(`Stream revision not syncronized:
-                    stream ${e.streamId} has revision ${streamRevisions[e.streamId]} and current event has eventId ${e.eventId}`);
-                streamRevisions[e.streamId]++;
-            });
-            await this.saveEvents(transaction.buffer);
-        }, cb);
+        return this.saveEventsTransactionally(transaction.buffer, cb);
     }
 
     get transactionMaxSize() {

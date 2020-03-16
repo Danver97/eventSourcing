@@ -13,9 +13,10 @@ function toJSON(obj) {
     return JSON.parse(JSON.stringify(obj));
 }
 
-describe('Event store unit test', async function () {
+describe('TestDB Event store unit test', async function () {
     const event1 = new Event('ae9efe', 1, 'event1', { name: 'event1' });
     const event2 = new Event('ae9efe', 2, 'event2', { name: 'event2' });
+    const event3 = new Event('ae9efe', 3, 'event3', { name: 'event3' });
     const snapshot = new Snapshot('abcdef', 15, { name: 'snapshot1' });
 
     this.beforeEach(() => es.reset());
@@ -40,7 +41,7 @@ describe('Event store unit test', async function () {
         try {
             await es.save(event1.streamId, event1.eventId - 1, event1.message, event1.payload);
         } catch (err) {
-            assert.strictEqual(err.code, EventStoreError.eventAlreadyExistsErrorCode);
+            assert.strictEqual(err.code, EventStoreError.streamRevisionNotSyncErrorCode);
         }
     });
 
@@ -61,7 +62,7 @@ describe('Event store unit test', async function () {
         try {
             await es.saveEvent(event1);
         } catch (err) {
-            assert.strictEqual(err.code, EventStoreError.eventAlreadyExistsErrorCode);
+            assert.strictEqual(err.code, EventStoreError.streamRevisionNotSyncErrorCode);
         }
     });
 
@@ -83,7 +84,7 @@ describe('Event store unit test', async function () {
         try {
             await es.saveEvents([event1]);
         } catch (err) {
-            assert.strictEqual(err.code, EventStoreError.eventAlreadyExistsErrorCode);
+            assert.strictEqual(err.code, EventStoreError.streamRevisionNotSyncErrorCode);
         }
     });
 
@@ -93,17 +94,27 @@ describe('Event store unit test', async function () {
         assert.deepStrictEqual(t.eventStore, es);
     });
 
-    it('check commitTransaction works', async function () {
-        let t = es.startTransaction();
-        t.saveEvent(event2);
+    it('check saveEventsTransactionally works', async function () {
         try {
-            await es.commitTransaction(t);
+            await es.saveEventsTransactionally([event1, event3]);
         } catch (err) {
             assert.ok(err instanceof EventStoreError);
             assert.strictEqual(err.code, EventStoreError.transactionFailedErrorCode);
         }
-        
-        t = es.startTransaction();
+        try {
+            await es.saveEventsTransactionally([event2, event1]);
+        } catch (err) {
+            assert.ok(err instanceof EventStoreError);
+            assert.strictEqual(err.code, EventStoreError.transactionFailedErrorCode);
+        }
+
+        await es.saveEventsTransactionally([event1, event2]);
+        const stream = es.eventStore[event1.streamId].events;
+        assert.deepStrictEqual(stream, [event1, event2]);
+    });
+
+    it('check commitTransaction works', async function () {
+        let t = es.startTransaction();
         t.saveEvents([event1, event2]);
         await es.commitTransaction(t);
         const stream = es.eventStore[event1.streamId].events;

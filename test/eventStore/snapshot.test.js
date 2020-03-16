@@ -2,7 +2,7 @@ const assert = require('assert');
 const Snapshot = require('../../eventStore/Snapshot');
 const SnapshotError = require('../../eventStore/errors/snapshot.error');
 
-describe('Event class unit test', function () {
+describe('Snapshot class unit test', function () {
     const snapObj = { streamId: 'aioaoida', revisionId: 1, payload: { field: 'value1' } };
 
     it('check constructor works', function () {
