@@ -15,6 +15,7 @@ module.exports = class Event {
         this.eventId = eventId;
         this.message = message;
         this.payload = payload;
+        this.createdAt = new Date();
     }
 
     _checkParams(streamId, eventId, message, payload) {
@@ -51,6 +52,14 @@ module.exports = class Event {
             eventId = obj.EventId;
         const message = obj.message || obj.Message;
         const payload = obj.payload || obj.Payload;
-        return new Event(streamId, eventId, message, payload);
+        const e = new Event(streamId, eventId, message, payload);
+        e.createdAt = new Date(obj.createdAt);
+        return e;
+    }
+
+    toJSON() {
+        const json = Object.assign({}, this);
+        json.createdAt = this.createdAt.toISOString();
+        return json;
     }
 };
