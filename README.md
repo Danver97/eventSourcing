@@ -8,6 +8,13 @@ It's compose of two sub-modules:
 The blueprint of the infrastructure is based on push notifications of the event store towards every event broker that must work as a persistent queue.
 Basically each new event that is stored in the event store, is published into each subscribed event broker.
 
+## New: Event Store transaction support!
+Starting from v3.0.0 some major stability improvements were made.  
+A part from that it's great to announce transaction support for the supported Event Store implementations.
+
+Now you case save multiple events belonging to the same or different event streams in a transactional way.
+For more information visit the dedicated documentation.
+
 ## Event
 Provide a base class of an event. Depending on the sub-module using it, it could be more specialized extending this as a base class.
 

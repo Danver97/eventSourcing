@@ -1,8 +1,20 @@
 const EventBrokerError = require('./errors/event_broker.error');
 
 class EventBrokerHandler {
-    constructor(eventBrokerName) {
+    /**
+     * @constructor
+     * @param {object} options 
+     * @param {string} options.eventBrokerName The broker name
+     */
+    constructor(options = {}) {
+        this._checkOptions(options);
+        const { eventBrokerName } = options;
         this.eventBrokerName = eventBrokerName;
+    }
+
+    _checkOptions(options) {
+        if (!options.eventBrokerName || typeof options.eventBrokerName !== 'string')
+            throw EventBrokerError.paramError(`'options.eventBrokerName' must be a string`);
     }
 
     getEvent(options, cb) {

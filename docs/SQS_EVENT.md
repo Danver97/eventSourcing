@@ -1,12 +1,11 @@
 # SqsEvent
-Provide a more specialized class for an event extending `BrokerEvent` class used by the broker implementation using AWS SQS.
+Provide a more specialized class for an event extending `Event` class. Used by the broker implementation for AWS SQS.
 
-For more information about `BrokerEvent` class please visit [BrokerEvent](./BROKER_EVENT.md).
+For more information about `Event` class please visit [Event](./EVENT.md).
 
 ## Inheritance tree
 - [`Event`](./EVENT.md)
-  - [`BrokerEvent`](./BROKER_EVENT.md)
-    - `SqsEvent`
+  - `SqsEvent`
 
 ## Methods
 
@@ -18,7 +17,7 @@ For more information about `BrokerEvent` class please visit [BrokerEvent](./BROK
 | `eventId` | string | Yes | The event's eventId |
 | `message` | string | Yes | The message of the event, for example: 'orderConfirmed' |
 | `payload` | object | Yes | The event payload, for example: `{ orderId: 15, status: 'confirmed' }` |
-| `sequenceNumber` | number | Yes | Defines an order within events using the same broker |
+| `createdAt` | Date | Yes | The date at which the event has been created |
 | `receiptHandle` | number | Yes | It's used by AWS SQS to identify a single instance of the same message. It's used internally to destroy an event in a SQS queue. |
 | `messageId` | number | Yes | The id of the message carrying the event. |
 
@@ -34,7 +33,7 @@ Helps deserializing an event. Take an object and returns an instance of `SqsEven
 | `eventId` | string | Yes | The event's eventId |
 | `message` | string | Yes | The message of the event, for example: 'orderConfirmed' |
 | `payload` | object | Yes | The event payload, for example: `{ orderId: 15, status: 'confirmed' }` |
-| `sequenceNumber` | number | Yes | Defines an order within events using the same broker |
+| `createdAt` | string | Yes | The ISO string representing the Date at which the event has been created |
 | `receiptHandle` | number | Yes | It's used by AWS SQS to identify a single instance of the same message. It's used internally to destroy an event in a SQS queue. |
 | `messageId` | number | Yes | The id of the message carrying the event. |
 

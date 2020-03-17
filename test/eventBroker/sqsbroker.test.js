@@ -3,20 +3,20 @@ const uuid = require('uuid').v4
 const attr = require('dynamodb-data-types').AttributeValue;
 const AWSinit = require('@danver97/aws-config')();
 const SQS = require('aws-sdk/clients/sqs');
-const SqsBroker = require('../../eventBroker/sqs').EbHandler;
+const SqsBroker = require('../../eventBroker')['sqs'];
 const SqsEvent = require('../../eventBroker/sqs/sqsEvent');
-const BrokerEvent = require('../../eventBroker/brokerEvent');
+const Event = require('../../event');
 const EventBrokerError = require('../../eventBroker/errors/event_broker.error');
 
 const AssertionError = assert.AssertionError;
 const sqsConfig = AWSinit.sqs;
 const sqs = new SQS();
-const queueName = 'Test';
-const broker = new SqsBroker(queueName);
+const queueName = 'TestQueue';
+const broker = new SqsBroker({ eventBrokerName: 'testBroker', queueName });
 
 const waitAsync = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-const testEvent = { "Payload": { "Field": "Field!" }, "Message": "New event!", "StreamId": "1", "EventId": 1, "SequenceNumber": "111" };
+const testEvent = { "Payload": { "Field": "Field!" }, "Message": "New event!", "StreamId": "1", "EventId": 1, "CreatedAt": (new Date()).toISOString(), "SequenceNumber": "111" };
 // console.log(JSON.stringify({Message: JSON.stringify(attr.wrap(testEvent))}));
 const snsEvent = {
     Type: "Notification",
@@ -66,18 +66,8 @@ const assertIsSqsEvent = (event) => {
         });
 }
 
-const assertIsBrokerEvent = (event) => {
-    if (!(event instanceof BrokerEvent))
-        throw new AssertionError({
-            message: 'Given event is not instance of BrokerEvent',
-            expected: BrokerEvent.name,
-            actual: event.constructor.name,
-            operator: 'instanceof',
-        });
-}
-
 const assertContainsSameInfo = (actual, expected) => {
-    assert.deepStrictEqual(BrokerEvent.fromObject(actual), BrokerEvent.fromObject(expected))
+    assert.deepStrictEqual(Event.fromObject(actual), Event.fromObject(expected))
 }
 
 function toJSON(obj) {
@@ -89,13 +79,13 @@ describe('Sqs Broker test', function () {
     this.slow(1000);
 
     let QueueUrl;
-    let publishedEvent = new BrokerEvent(uuid(), 1, 'provaEvent', { message: 'Prova evento' });
+    let publishedEvent = new Event(uuid(), 1, 'provaEvent', { message: 'Prova evento' });
 
     before(async () => {
-        QueueUrl = (await sqs.getQueueUrl({ QueueName: `${queueName}Queue` }).promise()).QueueUrl;
+        QueueUrl = (await sqs.getQueueUrl({ QueueName: queueName }).promise()).QueueUrl;
     });
     beforeEach(() => {
-        publishedEvent = new BrokerEvent(uuid(), 1, 'provaEvent', { message: 'Prova evento' });
+        publishedEvent = new Event(uuid(), 1, 'provaEvent', { message: 'Prova evento' });
         console.log('new event:', publishedEvent.streamId);
     });
     afterEach(async function () {
@@ -135,7 +125,7 @@ describe('Sqs Broker test', function () {
 
         await sqs.sendMessage({
             QueueUrl,
-            MessageBody: JSON.stringify(createSnsEvent(publishedEvent)),
+            MessageBody: JSON.stringify(createSnsEvent(toJSON(publishedEvent))),
         }).promise();
 
         events = await broker.getEvent({ number: 10 });
@@ -159,7 +149,7 @@ describe('Sqs Broker test', function () {
 
         await sqs.sendMessage({
             QueueUrl,
-            MessageBody: JSON.stringify(createSnsEvent(publishedEvent)),
+            MessageBody: JSON.stringify(createSnsEvent(toJSON(publishedEvent))),
         }).promise();
 
         let events = await broker.getEvent({ number: 10 });
@@ -214,7 +204,7 @@ describe('Sqs Broker test', function () {
 
         await sqs.sendMessage({
             QueueUrl,
-            MessageBody: JSON.stringify(createSnsEvent(publishedEvent)),
+            MessageBody: JSON.stringify(createSnsEvent(toJSON(publishedEvent))),
         }).promise();
 
         events = await broker.getEvent({ number: 10 });

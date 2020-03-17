@@ -1,87 +1,89 @@
-# Event broker
+# Event broker (v3.x)
 Provides a common interface for getting events from a event broker. Easily expandable, provides two implementations:
 - `testbroker`: a basic implementation of an in-memory event broker.
 - `sqs`: an event broker implementation backed by AWS SQS.
 
-## Types
-This interface defines a new class called `BrokerEvent`. It extends `Events` and provides some additional attributes. Some implementation extends `BrokerEvent` in order to provide more attributes that are used internally without lack of compatibility with the interface.
-
-For more information please visit [BrokerEvent](./BROKER_EVENT.md).
+[Documentation for version 2.x](./EVENT_BROKER_v2.x.md)
 
 ## Usage
 ```js
-const eventBroker = require('eventSourcing/eventBroker');
+const eventBroker = require('@danver97/event-sourcing/eventBroker')[type];
+const eventBroker = new EventBroker();
 ```
-`eventBroker` is an object with five functions:
-- `startPoll(options, eventHandler, ms)`
-- `stopPoll(id)`
-- `ignoreEvent(e, cb)`
-- `destroyEvent(e, cb)`
+`type` is a string between `'testbroker'` and `'sqs'`.
 
-### startPoll(options, eventHandler, ms)
-Starts polling the broker every `ms` milliseconds.
+`eventBroker` is an object with five functions:
+- `getEvent(options, cb)`
+- `publish(e, cb)`
+- `remove(e, cb)`
+
+
+### constructor(options)
+`options` is an object with the following properties
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `eventBrokerName` | string | Yes | The event broker name |
+| `tableName` | string | No | The SQS queue name used as broker. If not provided it defaults to `${eventBrokerName}Queue` |
+
+### getEvent(options, cb)
+Gets a batch of events from the broker.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `options` | object | Config options for the polling session |
-| `eventHandler` | function | Handler function |
-| `ms` | number | Milliseconds from one call to the other |
+| `options` | object | See below |
+| `cb` | function | Callback function |
 
 ##### Options
 `options` is an object with the following allowed keys.
 
-| Key | Type | Optional | Description |
+| Key | Type | Required | Description |
 | --- | --- | --- | --- |
-| `number` | number | Yes | The number of events to be retrieved. Depending on the implementation this could be ignored. |
-| `visibilityTimeout` | number | Yes | Milliseconds of the visibilityTimeout, optional. |
-
-##### Handler function
-`eventHandler` is a function with the following signature `eventHandler(err, events)`.
-
-| Parameter | Type | Description |
-| --- | --- | --- |
-| `err` | object | Config options for the polling session |
-| `events` | function | Polled events. Please note that `events` could be a single BrokerEvent or an array of object of the same class. |
+| `number` | number | No | The number of events to be retrieved. Depending on the implementation this could be ignored. |
+| `visibilityTimeout` | number | No | Milliseconds during which the event wont be available, in order to not be processed twice simultaneously. |
 
 #### Return
-Returns an integer referring the polling session. If multiple polling session are started the different `pollId` returned must be saved in order to stop them.
-
-### stopPoll(id)
-Stops polling the broker. If multiple polling session are started, stops the polling session with the gived `id`.
-
-### ignoreEvent(e, cb)
-Ignores the event. Different brokers when getting an event start a "visibility timeout" during which the event becomes "invisible" so that the event is processed by only one consumer. After the "visibility timeout" the event becomes visible so that if the consumer crashed before processing it, the event is delivered again. Sometimes is useful to ignore an event for certain time, so that is processed later (for example the event is out of order). This function allow the event handler to do it.
+If no callback is provided, returns a `Promise`.
+Otherwise returns `null`.
+#### Callback
+It's called at the end of `getEvent()`. Uses the following signature `cb(err, events)`.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `e` | BrokerEvent | The event |
+| `err` | object | Provide error information in case of a failed `getEvent()`. If everything is ok is `null` |
+| `events` | [Event](./EVENT.md)[] | The events pulled from the broker. **Note**: the events won't be automatically removed from it |
+
+### publish(event, cb)
+Publish an event to the broker.
+
+| Parameter | Type | Description |
+| --- | --- | --- |
+| `event` | [Event](./EVENT.md) | The event to publish |
 | `cb` | function | Callback function |
 
 #### Return
 If no callback is provided, returns a `Promise`.
 Otherwise returns `null`.
 #### Callback
-It's called at the end of `ignoreEvent()`. Uses the following signature `cb(err)`.
+It's called at the end of `publish()`. Uses the following signature `cb(err, events)`.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `err` | object | Provide error information in case of a failed `ignoreEvent()`. If everything is ok is `null` |
+| `err` | object | Provide error information in case of a failed `publish()`. If everything is ok is `null` |
 
-
-### destroyEvent(e, cb)
-Deques the event from the broker so that it's never delivered again.
+### remove(event, cb)
+Remove the event to the broker.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `e` | BrokerEvent | The event |
+| `event` | [Event](./EVENT.md) | The event to remove |
 | `cb` | function | Callback function |
 
 #### Return
 If no callback is provided, returns a `Promise`.
 Otherwise returns `null`.
 #### Callback
-It's called at the end of `destroyEvent()`. Uses the following signature `cb(err)`.
+It's called at the end of `publish()`. Uses the following signature `cb(err, events)`.
 
 | Parameter | Type | Description |
 | --- | --- | --- |
-| `err` | object | Provide error information in case of a failed `destroyEvent()`. If everything is ok is `null` |
+| `err` | object | Provide error information in case of a failed `publish()`. If everything is ok is `null` |

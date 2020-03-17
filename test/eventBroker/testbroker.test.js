@@ -1,8 +1,12 @@
 const assert = require('assert');
-const broker = require('../../eventBroker')['testbroker'];
-const testdb = require('../../eventStore')['testdb'];
-const BrokerEvent = require('../../eventBroker/brokerEvent');
+const EventBroker = require('../../eventBroker')['testbroker'];
+const EventStore = require('../../eventStore')['testdb'];
+const Event = require('../../event');
 const EventBrokerError = require('../../eventBroker/errors/event_broker.error');
+
+const es = new EventStore({ eventStoreName: 'testEventStore'});
+
+const broker = new EventBroker({ eventBrokerName: 'testBroker' });
 
 const waitAsync = ms => new Promise(resolve => setTimeout(resolve, ms));
 const waitSync = ms => {
@@ -13,14 +17,14 @@ const waitSync = ms => {
 };
 
 describe('Event broker unit test', function () {
-    let publishedEvent = new BrokerEvent('1', 1, 'provaEvent', { message: 'Prova evento' });
+    let publishedEvent = new Event('1', 1, 'provaEvent', { message: 'Prova evento' });
 
     before(async function () {
         await broker.subscribe('microservice-test');
     });
 
     this.beforeEach(() => {
-        publishedEvent = new BrokerEvent('1', 1, 'provaEvent', { message: 'Prova evento' });
+        publishedEvent = new Event('1', 1, 'provaEvent', { message: 'Prova evento' });
         broker.reset();
     });
 
@@ -79,7 +83,7 @@ describe('Event broker unit test', function () {
     it('check subscribe works', async function () {
         await broker.subscribe('microservice-test');
 
-        await testdb.save(publishedEvent.streamId, publishedEvent.eventId-1, publishedEvent.message, publishedEvent.payload);
+        await es.saveEvent(publishedEvent);
 
         const events = await broker.getEvent({ number: 10 });
         events.forEach(e => delete e._timeoutId);

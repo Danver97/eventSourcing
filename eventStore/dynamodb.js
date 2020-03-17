@@ -3,16 +3,16 @@ const DynamoDataTypes = require('dynamodb-data-types');
 const Promisify = require('promisify-cb');
 const stringHash = require("string-hash");
 const Event = require('../event');
-const EventStoreHandler = require('./EventStoreHandler');
-const EventStoreError = require('./errors/event_store.error');
 const Snapshot = require('./Snapshot');
+const EventStoreHandler = require('./EventStoreHandler');
+const Transaction = require('./transaction.class');
+const EventStoreError = require('./errors/event_store.error');
 const emitter = require('../lib/bus');
 
 const dynamoAttr = DynamoDataTypes.AttributeValue;
 
 let dynamoDb = ddbConfig.ddb;
 let microserviceName = process.env.MICROSERVICE_NAME;
-const snapshotTag = 'Snapshot';
 
 function emit(message, payload) {
     emitter.emit(message, payload);
@@ -24,6 +24,10 @@ function getTableName(microserviceName) {
 
 function getSnapshotTableName(microserviceName) {
     return `${microserviceName}SnapshotTable`;
+}
+
+function toJSON(obj) {
+    return JSON.parse(JSON.stringify(obj));
 }
 
 function removeEmptySetsOrStrings(attrValues) {
@@ -39,11 +43,20 @@ function removeEmptySetsOrStrings(attrValues) {
     });
 }
 
+const replayStreamsNumber = 5;
+
 class DynamoDBESHandler extends EventStoreHandler {
-    constructor(eventStoreName) {
-        super(eventStoreName);
-        this.tableName = getTableName(this.eventStoreName);
-        this.snapshotsTableName = getSnapshotTableName(this.eventStoreName);
+    /**
+     * @constructor
+     * @param {object} options
+     * @param {string} options.eventStoreName The name of the event store db
+     * @param {string} [options.tableName] The name of the event stream table
+     * @param {string} [options.snapshotsTableName] The name of the snapshot table
+     */
+    constructor(options = { eventStoreName: microserviceName }) {
+        super(options);
+        this.tableName = options.tableName || getTableName(this.eventStoreName);
+        this.snapshotsTableName = options.snapshotsTableName || getSnapshotTableName(this.eventStoreName);
     }
 
     /**
@@ -55,42 +68,48 @@ class DynamoDBESHandler extends EventStoreHandler {
      * @param {function} cb Asynchronous callback
      */
     save(streamId, revisionId, message, payload, cb) {
-        if (!streamId || typeof streamId !== 'string')
-            throw EventStoreError.paramError(`'streamId' must be a string. Found: ${typeof streamId}`);
-        if ((!revisionId && revisionId !== 0) || typeof revisionId !== 'number')
-            throw EventStoreError.paramError(`'revisionId' must be a number. Found: ${typeof revisionId}`);
-        if (!message || typeof message !== 'string')
-            throw EventStoreError.paramError(`'message' must be a number. Found: ${typeof message}`);
-        if (!payload)
-            throw EventStoreError.paramError(`Missing 'payload' parameter`);
+        this._checkSaveParams(streamId, revisionId, message, payload);
+        let eId = revisionId || payload._revisionId || 0;
+        eId++;
+        delete payload._revisionId;
+        const event = new Event(streamId, eId, message, toJSON(payload));
+        return this.saveEvent(event, cb);
+    }
+
+    /**
+     * Saves an event into the event store
+     * @param {Event} event The event to be saved
+     * @param {function} cb Asynchronous callback
+     */
+    saveEvent(event, cb) {
+        this._checkEvent(event);
         return Promisify(async () => {
-            let eId = revisionId || payload._revisionId || 0;
-            eId++;
-            delete payload._revisionId;
-            const event = new Event(streamId, eId, message, Object.assign({}, payload));
             const attrValues = dynamoAttr.wrap({
-                ':sid': streamId,
-                ':eid': eId, /* 1 */ // OCCHIO QUIIIII!
-                ':message': message,
-                ':payload': payload,
-                ':rsid': stringHash(streamId) % 5,
-                ':rssortkey': `${streamId}:${eId}`,
+                ':sid': event.streamId,
+                ':eid': event.eventId, /* 1 */ // OCCHIO QUIIIII!
+                ':message': event.message,
+                ':payload': event.payload,
+                ':cat': event.createdAt.toISOString(),
+                ':rsid': stringHash(event.streamId) % replayStreamsNumber,
+                ':rssortkey': `${event.streamId}:${event.eventId}`,
             });
+            let ConditionExpression = '#SID <> :sid AND #EID <> :eid'; // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
             removeEmptySetsOrStrings(attrValues);
             const params = {
                 TableName: this.tableName,
-                Key: dynamoAttr.wrap({ StreamId: streamId, EventId: eId /* 1 */ }), // OCCHIO QUIIIII!
+                Key: dynamoAttr.wrap({ StreamId: event.streamId, EventId: event.eventId /* 1 */ }), // OCCHIO QUIIIII!
                 ExpressionAttributeNames: {
                     '#SID': 'StreamId',
                     '#EID': 'EventId',
                     '#MSG': 'Message',
                     '#PL': 'Payload',
+                    '#CAT': 'CreatedAt',
                     '#RSID': 'ReplayStreamId',
                     '#RSSK': 'RSSortKey',
                 },
                 ExpressionAttributeValues: attrValues,
-                UpdateExpression: 'SET #MSG = :message, #PL = :payload, #RSID = :rsid, #RSSK = :rssortkey',
-                ConditionExpression: '#SID <> :sid AND #EID <> :eid', // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
+                UpdateExpression: 'SET #MSG = :message, #PL = :payload, #CAT = :cat, #RSID = :rsid, #RSSK = :rssortkey',
+                ConditionExpression,
                 ReturnValues: 'ALL_NEW',
                 ReturnItemCollectionMetrics: 'SIZE',
                 ReturnConsumedCapacity: 'INDEXES',
@@ -100,12 +119,98 @@ class DynamoDBESHandler extends EventStoreHandler {
                 await dynamoDb.updateItem(params).promise();
             } catch (err) {
                 if (err.code === 'ConditionalCheckFailedException')
-                    throw EventStoreError.eventAlreadyExistsError('Stream revision not syncronized.');
+                    throw EventStoreError.streamRevisionNotSyncError('Stream revision not syncronized.');
                 throw err;
             }
             emit('microservice-test', event);
             return event;
         }, cb);
+    }
+
+    /**
+     * Saves multiple events into the event store, in a non-transactional way.
+     * @param {Event[]} events The event to be saved
+     * @param {function} cb Asynchronous callback
+     */
+    saveEvents(events, cb) {
+        this._checkArrayOfEvents(events);
+        return Promisify(async () => {
+            await Promise.all(events.map(e => this.saveEvent(e)));
+        }, cb);
+    }
+
+    /**
+     * Starts a new transaction returning a new transaction handler
+     * @returns {Transaction} The transaction handler
+     */
+    startTransaction() {
+        return new Transaction(this);
+    }
+
+    /**
+     * Saves multiple events into the event store, in a transactional way.
+     * @param {Event[]} events The event to be saved
+     * @param {function} cb Asynchronous callback
+     */
+    saveEventsTransactionally(events, cb) {
+        return Promisify(async () => {
+            const transactItems = this._inTransactionConditionalChecks(events).map(e => {
+                const attrValues = dynamoAttr.wrap({
+                    ':sid': e.streamId,
+                    ':eid': e.eventId, /* 1 */ // OCCHIO QUIIIII!
+                    ':message': e.message,
+                    ':payload': e.payload,
+                    ':cat': e.createdAt.toISOString(),
+                    ':rsid': stringHash(e.streamId) % replayStreamsNumber,
+                    ':rssortkey': `${e.streamId}:${e.eventId}`,
+                });
+                let ConditionExpression = '#SID <> :sid AND #EID <> :eid'; // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
+                removeEmptySetsOrStrings(attrValues);
+                return {
+                    Update: {
+                        TableName: this.tableName,
+                        Key: dynamoAttr.wrap({ StreamId: e.streamId, EventId: e.eventId /* 1 */ }), // OCCHIO QUIIIII!
+                        ExpressionAttributeNames: {
+                            '#SID': 'StreamId',
+                            '#EID': 'EventId',
+                            '#MSG': 'Message',
+                            '#PL': 'Payload',
+                            '#CAT': 'CreatedAt',
+                            '#RSID': 'ReplayStreamId',
+                            '#RSSK': 'RSSortKey',
+                        },
+                        ExpressionAttributeValues: attrValues,
+                        UpdateExpression: 'SET #MSG = :message, #PL = :payload, #CAT = :cat, #RSID = :rsid, #RSSK = :rssortkey',
+                        ConditionExpression,
+                    }
+                };
+            });
+            try {
+                await dynamoDb.transactWriteItems({ TransactItems: transactItems }).promise();
+            } catch (err) {
+                if (err.code === 'TransactionCanceledException' && /ConditionalCheckFailed/.test(err.message)) {
+                    throw EventStoreError.transactionFailedError('Some stream ids are out of sync');
+                }
+                throw err;
+            }
+        }, cb);
+    }
+
+    /**
+     * 
+     * @param {Transaction} transaction The transaction to commit
+     * @param {function} cb Asynchronous callback
+     */
+    commitTransaction(transaction, cb) {
+        if (!(transaction instanceof Transaction))
+            throw EventStoreError.paramError('\'transaction\' parameter must be an instance of Transaction class');
+        if (transaction.size > this.transactionMaxSize)
+            throw EventStoreError.transactionSizeExcededError(`'transaction' is too big. A maximum of ${this.transactionMaxSize} events per transaction are allowed.`);
+        return this.saveEventsTransactionally(transaction.buffer, cb);
+    }
+
+    get transactionMaxSize() {
+        return 25;
     }
 
     /**
@@ -188,7 +293,8 @@ class DynamoDBESHandler extends EventStoreHandler {
     }
 }
 
-const defaultHandler = new DynamoDBESHandler(microserviceName);
+/* const defaultHandler = new DynamoDBESHandler({ eventStoreName: microserviceName });
 defaultHandler.EsHandler = DynamoDBESHandler;
 
-module.exports = defaultHandler;
+module.exports = defaultHandler; */
+module.exports = DynamoDBESHandler;
