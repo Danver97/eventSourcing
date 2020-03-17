@@ -27,9 +27,15 @@ function queueName(name) {
 }
 
 class SqsBrokerHandler extends EventBrokerHandler {
-    constructor(eventBrokerName) {
-        super(eventBrokerName);
-        this.queueName = queueName(eventBrokerName);
+    /**
+     * @constructor
+     * @param {object} options 
+     * @param {string} options.eventBrokerName The broker name
+     * @param {string} [options.queueName] The broker queue name
+     */
+    constructor(options = { eventBrokerName: microserviceName }) {
+        super(options);
+        this.queueName = options.queueName || queueName(eventBrokerName);
     }
 
     _openMessageEnvelope(messageBody) {
@@ -127,7 +133,8 @@ class SqsBrokerHandler extends EventBrokerHandler {
     }
 }
 
-const defaultHandler = new SqsBrokerHandler(microserviceName);
+/* const defaultHandler = new SqsBrokerHandler(microserviceName);
 defaultHandler.EbHandler = SqsBrokerHandler;
 
-module.exports = defaultHandler;
+module.exports = defaultHandler; */
+module.exports = SqsBrokerHandler;

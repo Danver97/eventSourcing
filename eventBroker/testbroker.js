@@ -1,5 +1,5 @@
 const Promisify = require('promisify-cb');
-const BrokerEvent = require('./brokerEvent');
+const Event = require('../event');
 const EventBrokerHandler = require('./eventBrokerHandler');
 const EventBrokerError = require('./errors/event_broker.error');
 const emitter = require('../lib/bus');
@@ -10,13 +10,18 @@ const visibilityTimeout = 15000;
 
 
 function checkIfEvent(e) {
-    if (!(e instanceof BrokerEvent))
+    if (!(e instanceof Event))
         throw EventBrokerError.paramError('Provided object is not an instance of Event');
 }
 
 class TestBrokerHandler extends EventBrokerHandler {
-    constructor(eventBrokerName) {
-        super(eventBrokerName);
+    /**
+     * @constructor
+     * @param {object} options 
+     * @param {string} options.eventBrokerName The broker name
+     */
+    constructor(options = { eventBrokerName: microserviceName }) {
+        super(options);
         this.queue = [];
     }
 
@@ -34,7 +39,7 @@ class TestBrokerHandler extends EventBrokerHandler {
         let e = this.queue.shift();
         if (!e)
             return e;
-        e = BrokerEvent.fromObject(e);
+        e = Event.fromObject(e);
         e._timeoutId = setTimeout(() => this.queue.splice(0, 0, e), timeout || visibilityTimeout);
         return e;
     }
@@ -92,7 +97,8 @@ class TestBrokerHandler extends EventBrokerHandler {
     }
 }
 
-const defaultHandler = new TestBrokerHandler(microserviceName);
+/* const defaultHandler = new TestBrokerHandler(microserviceName);
 defaultHandler.EbHandler = TestBrokerHandler;
 
-module.exports = defaultHandler;
+module.exports = defaultHandler; */
+module.exports = TestBrokerHandler;

@@ -1,6 +1,6 @@
-const BrokerEvent = require('../brokerEvent');
+const Event = require('../../event');
 
-class SqsEvent extends BrokerEvent {
+class SqsEvent extends Event {
     constructor(streamId, eventId, message, payload, sequenceNumber, receiptHandle, messageId) {
         super(streamId, eventId, message, payload, sequenceNumber);
         this.receiptHandle = receiptHandle;
@@ -12,7 +12,9 @@ class SqsEvent extends BrokerEvent {
         const receiptHandle = obj.receiptHandle || obj.ReceiptHandle;
         const messageId = obj.messageId || obj.MessageId;
         
-        return new SqsEvent(e.streamId, e.eventId, e.message, e.payload, e.sequenceNumber, receiptHandle, messageId);
+        const sqsEv = new SqsEvent(e.streamId, e.eventId, e.message, e.payload, e.sequenceNumber, receiptHandle, messageId);
+        sqsEv.createdAt = e.createdAt;
+        return sqsEv;
     }
 }
 
