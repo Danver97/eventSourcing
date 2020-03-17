@@ -2,7 +2,7 @@
 Provide a base class of an event. Depending on the sub-module using it, it could be more specialized extending this as a base class.
 
 ## Subclasses
-- `BrokerEvent` - For more information please visit [BrokerEvent](./BROKER_EVENT.md).
+- `SQSEvent` - For more information please visit [SQSEvent](./SQS_EVENT.md).
 
 ## Methods
 
