@@ -7,7 +7,7 @@ const Transaction = require('../../eventStore/transaction.class');
 const EventStoreError = require('../../eventStore/errors/event_store.error');
 const emitter = require('../../lib/bus');
 
-const es = new EventStore();
+const es = new EventStore({ eventStoreName: 'provaService' });
 
 function toJSON(obj) {
     return JSON.parse(JSON.stringify(obj));
@@ -34,6 +34,7 @@ describe('TestDB Event store unit test', async function () {
 
         await es.save(event1.streamId, event1.eventId - 1, event1.message, event1.payload);
         const stream = es.eventStore[event1.streamId].events;
+        event1.createdAt = stream[0].createdAt;
         assert.deepStrictEqual(stream, [event1]);
         assert.ok(nodeEventPublished);
 
