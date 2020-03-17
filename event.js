@@ -53,7 +53,7 @@ module.exports = class Event {
         const message = obj.message || obj.Message;
         const payload = obj.payload || obj.Payload;
         const e = new Event(streamId, eventId, message, payload);
-        e.createdAt = new Date(obj.createdAt);
+        e.createdAt = new Date(obj.createdAt || obj.CreatedAt);
         return e;
     }
 

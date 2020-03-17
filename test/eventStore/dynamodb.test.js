@@ -25,10 +25,21 @@ const ddb = new AWS.DynamoDB({ apiVersion: '2012-08-10' });
 const eventStreamTable = `${process.env.MICROSERVICE_NAME}EventStreamTable`;
 const snapshotTable = `${process.env.MICROSERVICE_NAME}SnapshotTable`;
 
-const es = new EventStore();
+const es = new EventStore({ eventStoreName: 'testEventStore', tableName: eventStreamTable, snapshotsTableName: snapshotTable });
 
 function toJSON(obj) {
     return JSON.parse(JSON.stringify(obj));
+}
+
+function assertSimilarDates(actual, expected) {
+    assert.ok(actual instanceof Date);
+    assert.strictEqual(actual.getUTCFullYear(), expected.getUTCFullYear());
+    assert.strictEqual(actual.getUTCMonth(), expected.getUTCMonth());
+    assert.strictEqual(actual.getUTCDate(), expected.getUTCDate());
+    assert.strictEqual(actual.getUTCHours(), expected.getUTCHours());
+    assert.strictEqual(actual.getUTCMinutes(), expected.getUTCMinutes());
+    assert.strictEqual(actual.getUTCSeconds(), expected.getUTCSeconds());
+
 }
 
 describe('DDB Event store unit test', async function () {
@@ -63,7 +74,7 @@ describe('DDB Event store unit test', async function () {
         emitter.on('microservice-test', () => {
             nodeEventPublished = true;
         });
-
+        
         await es.save(event1.streamId, event1.eventId - 1, event1.message, event1.payload);
         const response = await ddb.query({
             TableName: eventStreamTable,
@@ -73,6 +84,9 @@ describe('DDB Event store unit test', async function () {
 
         const stream = response.Items.map(i => dynamoAttr.unwrap(i)).map(e => Event.fromObject(e));
 
+        assertSimilarDates(stream[0].createdAt, event1.createdAt);
+        delete stream[0].createdAt;
+        delete event1.createdAt;
         delete event1.payload.emptyArray;
         delete event1.payload.emptyString;
         assert.deepStrictEqual(stream, [event1]);
@@ -215,6 +229,7 @@ describe('DDB Event store unit test', async function () {
                 '#EID': 'EventId',
                 '#MSG': 'Message',
                 '#PL': 'Payload',
+                '#CAT': 'CreatedAt',
                 '#RSID': 'ReplayStreamId',
                 '#RSSK': 'RSSortKey',
             },
@@ -223,10 +238,11 @@ describe('DDB Event store unit test', async function () {
                 ':eid': event1.eventId, /* 1 */ // OCCHIO QUIIIII!
                 ':message': event1.message,
                 ':payload': event1.payload,
+                ':cat': event1.createdAt.toISOString(),
                 ':rsid': stringHash(event1.streamId) % 5,
                 ':rssortkey': `${event1.streamId}:${event1.eventId}`,
             }),
-            UpdateExpression: 'SET #MSG = :message, #PL = :payload, #RSID = :rsid, #RSSK = :rssortkey',
+            UpdateExpression: 'SET #MSG = :message, #PL = :payload, #CAT = :cat, #RSID = :rsid, #RSSK = :rssortkey',
             ConditionExpression: '#SID <> :sid AND #EID <> :eid', // 'attribute_not_exists(StreamId) AND attribute_not_exists(EventId)',
             ReturnValues: 'ALL_NEW',
             ReturnItemCollectionMetrics: 'SIZE',

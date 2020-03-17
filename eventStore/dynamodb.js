@@ -89,6 +89,7 @@ class DynamoDBESHandler extends EventStoreHandler {
                 ':eid': event.eventId, /* 1 */ // OCCHIO QUIIIII!
                 ':message': event.message,
                 ':payload': event.payload,
+                ':cat': event.createdAt.toISOString(),
                 ':rsid': stringHash(event.streamId) % replayStreamsNumber,
                 ':rssortkey': `${event.streamId}:${event.eventId}`,
             });
@@ -102,11 +103,12 @@ class DynamoDBESHandler extends EventStoreHandler {
                     '#EID': 'EventId',
                     '#MSG': 'Message',
                     '#PL': 'Payload',
+                    '#CAT': 'CreatedAt',
                     '#RSID': 'ReplayStreamId',
                     '#RSSK': 'RSSortKey',
                 },
                 ExpressionAttributeValues: attrValues,
-                UpdateExpression: 'SET #MSG = :message, #PL = :payload, #RSID = :rsid, #RSSK = :rssortkey',
+                UpdateExpression: 'SET #MSG = :message, #PL = :payload, #CAT = :cat, #RSID = :rsid, #RSSK = :rssortkey',
                 ConditionExpression,
                 ReturnValues: 'ALL_NEW',
                 ReturnItemCollectionMetrics: 'SIZE',
@@ -158,6 +160,7 @@ class DynamoDBESHandler extends EventStoreHandler {
                     ':eid': e.eventId, /* 1 */ // OCCHIO QUIIIII!
                     ':message': e.message,
                     ':payload': e.payload,
+                    ':cat': e.createdAt.toISOString(),
                     ':rsid': stringHash(e.streamId) % replayStreamsNumber,
                     ':rssortkey': `${e.streamId}:${e.eventId}`,
                 });
@@ -172,11 +175,12 @@ class DynamoDBESHandler extends EventStoreHandler {
                             '#EID': 'EventId',
                             '#MSG': 'Message',
                             '#PL': 'Payload',
+                            '#CAT': 'CreatedAt',
                             '#RSID': 'ReplayStreamId',
                             '#RSSK': 'RSSortKey',
                         },
                         ExpressionAttributeValues: attrValues,
-                        UpdateExpression: 'SET #MSG = :message, #PL = :payload, #RSID = :rsid, #RSSK = :rssortkey',
+                        UpdateExpression: 'SET #MSG = :message, #PL = :payload, #CAT = :cat, #RSID = :rsid, #RSSK = :rssortkey',
                         ConditionExpression,
                     }
                 };
