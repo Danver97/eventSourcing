@@ -50,7 +50,8 @@ class TestBrokerHandler extends EventBrokerHandler {
         if (!number)
             return [this.dequeueEvent(timeout)];
         const events = [];
-        for (let i = 0; i < Math.min(number, this.queue.length); i++)
+        const initialLength = this.queue.length;
+        for (let i = 0; i < Math.min(number, initialLength); i++)
             events.push(this.dequeueEvent(timeout));
         return events;
     }
