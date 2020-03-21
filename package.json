@@ -1,13 +1,13 @@
 {
   "name": "@danver97/event-sourcing",
-  "version": "3.0.1",
+  "version": "3.0.0",
   "description": "A javascript module developed to easily manage event sourcing.",
   "main": "event.js",
   "directories": {
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo 'test'",
+    "test": "mocha --exit ./test",
     "preversion": "npm test",
     "postversion": "git push --follow-tags && npm publish"
   },
